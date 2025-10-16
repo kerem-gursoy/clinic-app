@@ -1,0 +1,19 @@
+{
+  "name": "clinic-app",
+  "private": true,
+  "workspaces": [
+    "client",
+    "server"
+  ],
+  "scripts": {
+    "dev": "npm-run-all -p dev:*",
+    "dev:client": "npm --workspace client run dev",
+    "dev:server": "npm --workspace server run dev",
+    "build": "npm-run-all build:*",
+    "build:client": "npm --workspace client run build",
+    "build:server": "npm --workspace server run build"
+  },
+  "devDependencies": {
+    "npm-run-all": "^4.1.5"
+  }
+}
