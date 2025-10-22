@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Calendar, AlertCircle } from "lucide-react"
 
@@ -17,45 +18,26 @@ export default function LoginPage() {
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState("")
 
- const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setError("");
-  setIsLoading(true);
-  try {
-    const res = await fetch("/api/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Login failed");
-    // Save JWT for session
-    localStorage.setItem("token", data.token);
-    // Redirect based on role
-    switch (data.role) {
-      case "admin":
-        router.push("/admin/dashboard");
-        break;
-      case "doctor":
-        router.push("/doctor/dashboard");
-        break;
-      default:
-        router.push("/patient/appointments");
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault()
+        setError("")
+        setIsLoading(true)
+
+        await new Promise((resolve) => setTimeout(resolve, 1000))
+
+        if (!email || !password) {
+            setError("Please enter both email and password")
+            setIsLoading(false)
+            return
+        }
+
+        router.push("/patient/appointments")
     }
-  } catch (err: any) {
-    setError(err.message);
-  } finally {
-    setIsLoading(false);
-  }
-};
-
-
-
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-background px-4 py-8">
             <div className="w-full max-w-md">
-
+                {/* Logo/Brand Section */}
                 <div className="text-center mb-8">
                     <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-4">
                         <Calendar className="h-8 w-8 text-primary" />
@@ -64,9 +46,13 @@ export default function LoginPage() {
                     <p className="text-muted-foreground">Sign in to access your clinic account</p>
                 </div>
 
+                {/* Login Card */}
                 <Card>
                     <CardHeader>
                         <CardTitle>Sign In</CardTitle>
+                        {/* <CardDescription>
+              Enter your credentials to continue
+            </CardDescription> */}
                     </CardHeader>
                     <form onSubmit={handleSubmit}>
                         <CardContent className="space-y-4">
