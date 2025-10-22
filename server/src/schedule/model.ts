@@ -26,7 +26,6 @@ export async function create(p: any) {
 }
 
 export async function update(id: number, patch: any) {
-  // Very basic example; in real code build dynamic SETs safely
   const [r] = await pool.execute(
     "UPDATE appointments SET start_time=?, end_time=?, status=?, reason=? WHERE id=?",
     [patch.start, patch.end, patch.status, patch.reason, id]

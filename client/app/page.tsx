@@ -8,7 +8,7 @@ export default function HomePage() {
 
   useEffect(() => {
     // Redirect to patient appointments by default
-    router.push("/patient/appointments")
+    router.push("/auth/login")
   }, [router])
 
   return (

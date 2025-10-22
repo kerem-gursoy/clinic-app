@@ -109,7 +109,7 @@ function AppointmentRow({
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-start gap-4 flex-1 min-w-0">
           {/* Time */}
-          <div className="flex-shrink-0 w-20 pt-1">
+          <div className="shrink-0 w-20 pt-1">
             <div className="text-sm font-semibold">{appointment.time}</div>
             <div className="text-xs text-muted-foreground">{appointment.duration} min</div>
           </div>
