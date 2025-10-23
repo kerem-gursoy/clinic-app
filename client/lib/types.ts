@@ -1,6 +1,6 @@
 export type AppointmentStatus = "draft" | "scheduled" | "checked-in" | "in-room" | "completed" | "cancelled"
 
-export type UserRole = "patient" | "doctor" | "receptionist"
+export type UserRole = "patient" | "doctor" | "staff"
 
 export interface Patient {
   id: string

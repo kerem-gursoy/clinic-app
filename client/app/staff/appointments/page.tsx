@@ -9,7 +9,7 @@ import { Calendar, User, ChevronLeft, ChevronRight, MoreVertical } from "lucide-
 import { mockAppointments } from "@/lib/mock-data"
 import type { Appointment, AppointmentStatus } from "@/lib/types"
 
-export default function ReceptionAppointmentsPage() {
+export default function StaffAppointmentsPage() {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [appointments, setAppointments] = useState<Appointment[]>(mockAppointments)
 
