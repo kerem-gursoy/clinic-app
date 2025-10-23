@@ -9,7 +9,7 @@ import { Search, Phone, Mail, Stethoscope, Calendar } from "lucide-react"
 import { mockProviders, mockAppointments } from "@/lib/mock-data"
 import type { Provider } from "@/lib/types"
 
-export default function ReceptionDoctorsPage() {
+export default function StaffDoctorsPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [providers] = useState<Provider[]>(mockProviders)
 

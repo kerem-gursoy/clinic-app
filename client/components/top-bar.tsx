@@ -40,13 +40,13 @@ const roleConfig = {
       { label: "Other", href: "/doctor/other" },
     ],
   },
-  receptionist: {
-    label: "Receptionist",
+  staff: {
+    label: "Staff",
     tabs: [
-      { label: "Agenda", href: "/reception/appointments" },
-      { label: "Patients", href: "/reception/patients" },
-      { label: "Doctors", href: "/reception/doctors" },
-      { label: "Other", href: "/reception/other" },
+      { label: "Agenda", href: "/staff/appointments" },
+      { label: "Patients", href: "/staff/patients" },
+      { label: "Doctors", href: "/staff/doctors" },
+      { label: "Other", href: "/staff/other" },
     ],
   },
 }
@@ -79,7 +79,7 @@ export function TopBar({ role, onRoleChange, onNewAppointment }: TopBarProps) {
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => onRoleChange("patient")}>Patient</DropdownMenuItem>
             <DropdownMenuItem onClick={() => onRoleChange("doctor")}>Doctor</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onRoleChange("receptionist")}>Receptionist</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onRoleChange("staff")}>Staff</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
 
