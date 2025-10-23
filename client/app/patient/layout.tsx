@@ -12,7 +12,11 @@ export default function PatientLayout({
 }) {
   const router = useRouter()
 
-  const handleRoleChange = (role: "patient" | "doctor" | "receptionist") => {
+  const handleRoleChange = (role: "patient" | "doctor" | "staff") => {
+    if (role === "staff") {
+      router.push("/staff/appointments")
+      return
+    }
     router.push(`/${role}/appointments`)
   }
 

@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Checkbox } from "@/components/ui/checkbox"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Calendar, AlertCircle } from "lucide-react"
 
@@ -56,7 +55,7 @@ export default function LoginPage() {
     return (
         <div className="min-h-screen flex items-center justify-center bg-background px-4 py-8">
             <div className="w-full max-w-md">
-                {/* Logo/Brand Section */}
+
                 <div className="text-center mb-8">
                     <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-4">
                         <Calendar className="h-8 w-8 text-primary" />
@@ -65,13 +64,9 @@ export default function LoginPage() {
                     <p className="text-muted-foreground">Sign in to access your clinic account</p>
                 </div>
 
-                {/* Login Card */}
                 <Card>
                     <CardHeader>
                         <CardTitle>Sign In</CardTitle>
-                        {/* <CardDescription>
-              Enter your credentials to continue
-            </CardDescription> */}
                     </CardHeader>
                     <form onSubmit={handleSubmit}>
                         <CardContent className="space-y-4">
