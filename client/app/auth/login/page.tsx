@@ -18,21 +18,40 @@ export default function LoginPage() {
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState("")
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault()
-        setError("")
-        setIsLoading(true)
-
-        await new Promise((resolve) => setTimeout(resolve, 1000))
-
-        if (!email || !password) {
-            setError("Please enter both email and password")
-            setIsLoading(false)
-            return
-        }
-
-        router.push("/patient/appointments")
+ const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setError("");
+  setIsLoading(true);
+  try {
+    const res = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Login failed");
+    // Save JWT for session
+    localStorage.setItem("token", data.token);
+    // Redirect based on role
+    switch (data.role) {
+      case "admin":
+        router.push("/admin/dashboard");
+        break;
+      case "doctor":
+        router.push("/doctor/dashboard");
+        break;
+      default:
+        router.push("/patient/appointments");
     }
+  } catch (err: any) {
+    setError(err.message);
+  } finally {
+    setIsLoading(false);
+  }
+};
+
+
+
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-background px-4 py-8">
