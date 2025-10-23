@@ -20,7 +20,7 @@ import { Search, User, Phone, Mail, Calendar, Plus } from "lucide-react"
 import { mockPatients } from "@/lib/mock-data"
 import type { Patient } from "@/lib/types"
 
-export default function ReceptionPatientsPage() {
+export default function StaffPatientsPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [patients, setPatients] = useState<Patient[]>(mockPatients)
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
