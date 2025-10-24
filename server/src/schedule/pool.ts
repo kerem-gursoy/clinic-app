@@ -14,6 +14,16 @@ export const pool = mysql.createPool({
   connectionLimit: 10,
 });
 
+pool.getConnection()
+  .then((conn) => {
+    console.log("DB connection OK");
+    conn.release();
+  })
+  .catch((err) => {
+    console.error("DB connection failed", err);
+  });
+
+
 interface NewPatient {
   patient_fname: string;
   patient_lname: string;
