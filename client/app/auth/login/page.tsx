@@ -9,6 +9,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Calendar, AlertCircle } from "lucide-react"
 
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3000"
+
 export default function LoginPage() {
     const router = useRouter()
     const [email, setEmail] = useState("")
@@ -49,8 +51,52 @@ export default function LoginPage() {
   }
 };
 
+        if (!email || !password) {
+            setError("Please enter both email and password")
+            setIsLoading(false)
+            return
+        }
 
+        try {
+            const res = await fetch(`${API_BASE}/api/auth/login`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ email, password }),
+            })
 
+            const data = await res.json()
+
+            if (!res.ok) {
+                setError(data?.error ?? "Unable to sign in. Please try again.")
+                setIsLoading(false)
+                return
+            }
+
+            const { token, user } = data ?? {}
+            if (token) {
+                localStorage.setItem("authToken", token)
+            }
+            if (user) {
+                localStorage.setItem("authUser", JSON.stringify(user))
+            }
+
+            const role = user?.role?.toLowerCase()
+            if (role === "doctor") {
+                router.push("/doctor/appointments")
+            } else if (role === "staff") {
+                router.push("/staff/appointments")
+            } else {
+                router.push("/patient/appointments")
+            }
+        } catch (err) {
+            console.error("Login failed", err)
+            setError("Unexpected error. Please try again.")
+        } finally {
+            setIsLoading(false)
+        }
+    }
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-background px-4 py-8">

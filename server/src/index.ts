@@ -8,7 +8,7 @@ import appointmentsRouter from "./schedule/routes.js";
 import authRouter from "./auth/routes.js";
 
 const app = express();
-app.use(cors({ origin: ["http://localhost:3000", "http://localhost:5173"], credentials: true }));
+app.use(cors({ origin: ["http://localhost:3000", "http://localhost:3001"], credentials: true }));
 app.use(express.json());
 
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
