@@ -4,14 +4,7 @@ import { useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+import {DropdownMenu,DropdownMenuContent,DropdownMenuItem,DropdownMenuLabel,DropdownMenuSeparator,DropdownMenuTrigger,} from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { Plus, Search, User, Menu, X } from "lucide-react"
 import type { UserRole } from "@/lib/types"
@@ -21,6 +14,7 @@ interface TopBarProps {
   role: UserRole
   onRoleChange: (role: UserRole) => void
   onNewAppointment: () => void
+  onLogout: () => Promise<void> | void
 }
 
 const roleConfig = {
@@ -51,10 +45,20 @@ const roleConfig = {
   },
 }
 
-export function TopBar({ role, onRoleChange, onNewAppointment }: TopBarProps) {
+export function TopBar({ role, onRoleChange, onNewAppointment, onLogout }: TopBarProps) {
   const pathname = usePathname()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
   const config = roleConfig[role]
+
+  const handleLogout = async () => {
+    try {
+      setIsLoggingOut(true)
+      await onLogout()
+    } finally {
+      setIsLoggingOut(false)
+    }
+  }
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-card">
@@ -121,7 +125,9 @@ export function TopBar({ role, onRoleChange, onNewAppointment }: TopBarProps) {
               <DropdownMenuItem>Profile</DropdownMenuItem>
               <DropdownMenuItem>Settings</DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>Log out</DropdownMenuItem>
+              <DropdownMenuItem onClick={handleLogout} disabled={isLoggingOut}>
+                {isLoggingOut ? "Logging out..." : "Log out"}
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
 

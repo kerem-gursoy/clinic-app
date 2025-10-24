@@ -1,8 +1,10 @@
 "use client"
 
+import { useRouter } from "next/navigation"
+
 import type React from "react"
 import { TopBar } from "@/components/top-bar"
-import { useRouter } from "next/navigation"
+import { logout } from "@/lib/auth"
 
 export default function DoctorLayout({
   children,
@@ -24,9 +26,24 @@ export default function DoctorLayout({
     console.log("New appointment clicked")
   }
 
+  const handleLogout = async () => {
+    try {
+      await logout()
+    } catch (err) {
+      console.error("Failed to log out", err)
+    } finally {
+      router.push("/auth/login")
+    }
+  }
+
   return (
     <div className="min-h-screen flex flex-col">
-      <TopBar role="doctor" onRoleChange={handleRoleChange} onNewAppointment={handleNewAppointment} />
+      <TopBar
+        role="doctor"
+        onRoleChange={handleRoleChange}
+        onNewAppointment={handleNewAppointment}
+        onLogout={handleLogout}
+      />
       <main className="flex-1">{children}</main>
     </div>
   )

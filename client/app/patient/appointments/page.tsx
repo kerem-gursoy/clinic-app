@@ -35,7 +35,7 @@ export default function PatientAppointmentsPage() {
 
       {/* Filters */}
       <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-2">
-        <Filter className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+        <Filter className="h-4 w-4 text-muted-foreground shrink-0" />
         <Button
           variant={selectedStatus === "all" ? "default" : "outline"}
           size="sm"

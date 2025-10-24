@@ -2,7 +2,7 @@ import { Router, type NextFunction, type Request, type Response } from "express"
 import jwt, { type JwtPayload } from "jsonwebtoken";
 import argon2 from "argon2";
 import type { RowDataPacket } from "mysql2/promise";
-import { pool, createDoctor, createPatient } from "../schedule/pool.js";
+import { pool, createDoctor, createPatient, createStaff } from "../schedule/pool.js";
 
 
 type UserRole = "PATIENT" | "DOCTOR" | "STAFF";
@@ -29,6 +29,8 @@ function signToken(user: Pick<AuthTokenPayload, "user_id" | "role" | "email">) {
   return jwt.sign(user, getJwtSecret(), { expiresIn: "7d" });
 }
 
+
+
 function requireAuth(req: RequestWithUser, res: Response, next: NextFunction) {
   const header = req.headers.authorization ?? "";
   const token = header.startsWith("Bearer ") ? header.slice("Bearer ".length) : undefined;
@@ -47,6 +49,20 @@ function requireAuth(req: RequestWithUser, res: Response, next: NextFunction) {
     console.warn("JWT verification failed", err);
     return res.status(401).json({ error: "Unauthorized" });
   }
+}
+
+export function requireRole(...allowedRoles: UserRole[]) {
+  return (req: RequestWithUser, res: Response, next: NextFunction) => {
+
+    if (!req.user) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    if (!allowedRoles.includes(req.user.role)) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+    next();
+  };
 }
 
 router.post("/auth/login", async (req: Request, res: Response) => {
@@ -80,6 +96,10 @@ router.post("/auth/login", async (req: Request, res: Response) => {
   }
 });
 
+router.post("/auth/logout", (_req: Request, res: Response) => {
+  res.status(200).json({ message: "Logged out" });
+});
+
 router.post("/doctors", async (req: Request, res: Response) => {
   try {
     const result = await createDoctor(req.body);
@@ -97,6 +117,16 @@ router.post("/patients", async (req: Request, res: Response) => {
   } catch (err) {
     console.error("createPatient failed", err);
     return res.status(500).json({ error: "Unable to create patient" });
+  }
+});
+
+router.post('/staff', async (req, res) => {
+  try {
+    const result = await createStaff(req.body);
+    return res.status(201).json(result);
+  } catch (err) {
+    console.error("createStaff failed", err);
+    return res.status(500).json({ error: "Unable to create staff" });
   }
 });
 
@@ -145,3 +175,4 @@ function getJwtSecret(): string {
   }
   return secret;
 }
+

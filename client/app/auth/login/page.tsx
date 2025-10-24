@@ -5,15 +5,28 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Calendar, AlertCircle } from "lucide-react"
+import { login } from "@/lib/auth"
+import type { UserRole } from "@/lib/types"
+
+function getDashboardPath(role: UserRole) {
+    switch (role) {
+        case "doctor":
+            return "/doctor/appointments"
+        case "staff":
+            return "/staff/appointments"
+        case "patient":
+        default:
+            return "/patient/appointments"
+    }
+}
 
 export default function LoginPage() {
     const router = useRouter()
     const [email, setEmail] = useState("")
     const [password, setPassword] = useState("")
-    const [rememberMe, setRememberMe] = useState(false)
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState("")
 
@@ -22,15 +35,16 @@ export default function LoginPage() {
         setError("")
         setIsLoading(true)
 
-        await new Promise((resolve) => setTimeout(resolve, 1000))
-
-        if (!email || !password) {
-            setError("Please enter both email and password")
+        try {
+            const { user } = await login(email, password)
+            const destination = getDashboardPath(user.role)
+            router.push(destination)
+        } catch (err) {
+            const message = err instanceof Error ? err.message : "Unable to sign in. Please try again."
+            setError(message)
+        } finally {
             setIsLoading(false)
-            return
         }
-
-        router.push("/patient/appointments")
     }
 
     return (

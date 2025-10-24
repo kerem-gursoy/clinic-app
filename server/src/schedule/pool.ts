@@ -1,22 +1,10 @@
 import mysql from 'mysql2/promise';
 import argon2 from 'argon2';
-import 'dotenv/config';
-
-console.log('DB_HOST:', process.env.DB_HOST, 'DB_USER:', process.env.DB_USER);
-
-import argon2 from 'argon2';
-import 'dotenv/config';
+import 'dotenv/config'; 
 
 console.log('DB_HOST:', process.env.DB_HOST, 'DB_USER:', process.env.DB_USER);
 
 export const pool = mysql.createPool({
-  host: process.env.DB_HOST,
-  port: Number(process.env.DB_PORT || 3306),
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-  waitForConnections: true,
-  connectionLimit: 10,
   host: process.env.DB_HOST,
   port: Number(process.env.DB_PORT || 3306),
   user: process.env.DB_USER,
@@ -64,6 +52,18 @@ interface NewDoctor {
   availability?: number | null;
   created_by?: number | null;
   doc_minit?: string | null;
+}
+
+interface NewStaff {
+  staff_first_name: string;
+  staff_last_name: string;
+  email: string;
+  password: string;
+  staff_minit?: string | null;
+  role?: string | null;        // table's job-role field (e.g., 'RECEPTION')
+  phone?: string | null;
+  ssn?: string | null;         // char(9)
+  office_id?: number | null;
 }
 
 export async function createPatient(data: NewPatient) {
@@ -151,6 +151,48 @@ export async function createDoctor(data: NewDoctor) {
   } catch (err) {
     await conn.rollback();
     console.error('createDoctor failed:', err);
+    throw err;
+  } finally {
+    conn.release();
+  }
+}
+
+export async function createStaff(data: NewStaff) {
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+
+    const [staffRes]: any = await conn.query(
+      `INSERT INTO staff (
+         staff_first_name, staff_last_name, staff_minit,
+         role, email, phone, created_at, ssn, office_id
+       ) VALUES (?, ?, ?, ?, ?, ?, NOW(), ?, ?)`,
+      [
+        data.staff_first_name,
+        data.staff_last_name,
+        data.staff_minit ?? null,
+        data.role ?? null,
+        data.email,
+        data.phone ?? null,
+        data.ssn ?? null,
+        data.office_id ?? null,
+      ]
+    );
+
+    const staffId = staffRes.insertId;
+    const hash = await argon2.hash(data.password);
+
+    await conn.query(
+      `INSERT INTO login (user_id, email, password, role, created_at, updated_at)
+       VALUES (?, ?, ?, 'STAFF', NOW(), NOW())`,
+      [staffId, data.email, hash]
+    );
+
+    await conn.commit();
+    return { success: true, staffId };
+  } catch (err) {
+    await conn.rollback();
+    console.error('createStaff failed:', err);
     throw err;
   } finally {
     conn.release();

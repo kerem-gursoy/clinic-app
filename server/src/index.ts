@@ -8,13 +8,29 @@ import appointmentsRouter from "./schedule/routes.js";
 import authRouter from "./auth/routes.js";
 
 const app = express();
-app.use(cors({ origin: ["http://localhost:3000", "http://localhost:5173"], credentials: true }));
+const allowedOrigins = (process.env.ALLOWED_ORIGINS ?? "http://localhost:3000,http://localhost:3001,http://localhost:5173")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+app.use(
+  cors({
+    origin(origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, origin);
+        return;
+      }
+      callback(new Error("Not allowed by CORS"));
+    },
+    credentials: true,
+  })
+);
 app.use(express.json());
 
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
 
 app.use("/api", authRouter);
-app.use("/api/appointments", appointmentsRouter);
+app.use("/api/appointments", appointmentsRouter)
 
 // 404
 app.use((_req, res) => res.status(404).json({ error: "Not found" }));
