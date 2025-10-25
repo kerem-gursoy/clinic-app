@@ -115,3 +115,34 @@ export const mockFiles: FileUpload[] = [
     url: "/insurance-card-back.jpg",
   },
 ]
+
+// Demo vitals per visit for patients. In real app these come from the backend.
+export const mockVitals = [
+  {
+    patientId: "p1",
+    date: "2025-09-15",
+    weight: 143.8,
+    hr: 78,
+    systolic: 136,
+    diastolic: 88,
+    bmi: 21.2,
+  },
+  {
+    patientId: "p1",
+    date: "2025-10-01",
+    weight: 140.2,
+    hr: 76,
+    systolic: 130,
+    diastolic: 84,
+    bmi: 20.9,
+  },
+  {
+    patientId: "p1",
+    date: "2025-10-20",
+    weight: 138.9,
+    hr: 74,
+    systolic: 124,
+    diastolic: 68,
+    bmi: 20.7,
+  },
+]
