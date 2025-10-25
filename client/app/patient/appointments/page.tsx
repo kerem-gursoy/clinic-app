@@ -28,9 +28,20 @@ export default function PatientAppointmentsPage() {
   return (
     <div className="container max-w-5xl mx-auto py-8 px-4">
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold mb-2">My Appointments</h1>
-        <p className="text-muted-foreground">View and manage your upcoming and past appointments</p>
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
+        <div>
+          <h1 className="text-2xl font-semibold mb-2">My Appointments</h1>
+          <p className="text-muted-foreground">View and manage your upcoming and past appointments</p>
+        </div>
+        <div className="flex gap-3">
+          <Button 
+            className="w-full sm:w-auto" 
+            size="lg" 
+            onClick={() => window.location.href = "/patient/appointments/schedule"}
+          >
+            Schedule Appointment
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
