@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import type React from "react"
 import { TopBar } from "@/components/top-bar"
 import { logout } from "@/lib/auth"
+import { useRoleGuard } from "@/hooks/use-role-guard"
 
 export default function StaffLayout({
   children,
@@ -12,14 +13,7 @@ export default function StaffLayout({
   children: React.ReactNode
 }) {
   const router = useRouter()
-
-  const handleRoleChange = (role: "patient" | "doctor" | "staff") => {
-    if (role === "staff") {
-      router.push("/staff/appointments")
-      return
-    }
-    router.push(`/${role}/appointments`)
-  }
+  const { isChecking } = useRoleGuard("staff")
 
   const handleNewAppointment = () => {
     // TODO: Open create appointment sheet
@@ -36,14 +30,17 @@ export default function StaffLayout({
     }
   }
 
+  if (isChecking) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-muted-foreground">Checking access…</p>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen flex flex-col">
-      <TopBar
-        role="staff"
-        onRoleChange={handleRoleChange}
-        onNewAppointment={handleNewAppointment}
-        onLogout={handleLogout}
-      />
+      <TopBar role="staff" onNewAppointment={handleNewAppointment} onLogout={handleLogout} />
       <main className="flex-1">{children}</main>
     </div>
   )

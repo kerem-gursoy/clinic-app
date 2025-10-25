@@ -12,7 +12,6 @@ import { cn } from "@/lib/utils"
 
 interface TopBarProps {
   role: UserRole
-  onRoleChange: (role: UserRole) => void
   onNewAppointment: () => void
   onLogout: () => Promise<void> | void
 }
@@ -45,7 +44,7 @@ const roleConfig = {
   },
 }
 
-export function TopBar({ role, onRoleChange, onNewAppointment, onLogout }: TopBarProps) {
+export function TopBar({ role, onNewAppointment, onLogout }: TopBarProps) {
   const pathname = usePathname()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
@@ -71,21 +70,10 @@ export function TopBar({ role, onRoleChange, onNewAppointment, onLogout }: TopBa
           <span className="hidden sm:inline">Appointments</span>
         </div>
 
-        {/* Role Switcher */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="hidden md:flex bg-transparent">
-              {config.label}
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start">
-            <DropdownMenuLabel>Switch Role</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => onRoleChange("patient")}>Patient</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onRoleChange("doctor")}>Doctor</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onRoleChange("staff")}>Staff</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {/* Role Display */}
+        <Button variant="outline" size="sm" className="hidden md:flex bg-transparent pointer-events-none select-none">
+          {config.label}
+        </Button>
 
         {/* Desktop Navigation */}
         <nav className="hidden md:flex items-center gap-1 flex-1">

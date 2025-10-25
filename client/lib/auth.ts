@@ -43,12 +43,69 @@ function persistAuth(token: string, user: AuthUser) {
   window.localStorage.setItem("authUser", JSON.stringify(user));
 }
 
-function clearStoredAuth() {
+export function clearStoredAuth() {
   if (typeof window === "undefined") {
     return;
   }
   window.localStorage.removeItem("authToken");
   window.localStorage.removeItem("authUser");
+}
+
+export function getStoredAuthUser(): AuthUser | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const raw = window.localStorage.getItem("authUser");
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as AuthUser;
+    if (!parsed || typeof parsed !== "object") {
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchCurrentUser(): Promise<AuthUser | null> {
+  const token = getStoredToken();
+  if (!token) {
+    return null;
+  }
+
+  const response = await fetch(`${getApiBaseUrl()}/auth/me`, {
+    method: "GET",
+    headers: { Authorization: `Bearer ${token}` },
+    credentials: "include",
+  });
+
+  if (response.status === 401 || response.status === 403) {
+    clearStoredAuth();
+    return null;
+  }
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch current user: ${response.status}`);
+  }
+
+  const payload = await response.json().catch(() => null);
+  if (!payload || !payload.user) {
+    return null;
+  }
+
+  const authUser: AuthUser = {
+    user_id: payload.user.user_id,
+    email: payload.user.email,
+    role: normalizeRole(payload.user.role as ApiUserRole),
+  };
+
+  persistAuth(token, authUser);
+  return authUser;
 }
 
 export async function login(email: string, password: string) {
