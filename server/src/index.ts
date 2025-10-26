@@ -7,6 +7,8 @@ import cors from "cors";
 import appointmentsRouter from "./schedule/routes.js";
 import authRouter from "./auth/routes.js";
 
+import patientRouter from "./patient/routes.js";
+
 const app = express();
 const allowedOrigins = (process.env.ALLOWED_ORIGINS ?? "http://localhost:3000,http://localhost:3001,http://localhost:5173")
   .split(",")
@@ -31,6 +33,7 @@ app.get("/api/health", (_req, res) => res.json({ ok: true }));
 
 app.use("/api", authRouter);
 app.use("/api/appointments", appointmentsRouter)
+app.use("/api/patient", patientRouter);
 
 // 404
 app.use((_req, res) => res.status(404).json({ error: "Not found" }));
@@ -43,3 +46,5 @@ app.use((err: any, _req: express.Request, res: express.Response, _next: express.
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`API on http://localhost:${PORT}`));
+
+

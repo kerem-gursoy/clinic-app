@@ -31,7 +31,7 @@ function signToken(user: Pick<AuthTokenPayload, "user_id" | "role" | "email">) {
 
 
 
-function requireAuth(req: RequestWithUser, res: Response, next: NextFunction) {
+export function requireAuth(req: RequestWithUser, res: Response, next: NextFunction) {
   const header = req.headers.authorization ?? "";
   const token = header.startsWith("Bearer ") ? header.slice("Bearer ".length) : undefined;
   if (!token) {
