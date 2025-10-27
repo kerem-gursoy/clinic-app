@@ -1,29 +1,54 @@
 "use client"
 
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { StatusChip } from "@/components/status-chip"
-import { EmptyState } from "@/components/empty-state"
-import { Calendar, Clock, User, Filter } from "lucide-react"
-import { mockAppointments } from "@/lib/mock-data"
-import type { Appointment, AppointmentStatus } from "@/lib/types"
+import { useEffect, useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { StatusChip } from "@/components/status-chip";
+import { EmptyState } from "@/components/empty-state";
+import { Calendar, Clock, User, Filter } from "lucide-react";
+import type { Appointment, AppointmentStatus } from "@/lib/types";
 
 export default function PatientAppointmentsPage() {
-  const [selectedStatus, setSelectedStatus] = useState<AppointmentStatus | "all">("all")
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [selectedStatus, setSelectedStatus] = useState<AppointmentStatus | "all">("all");
+
+  const fetchGuardRef = useRef(false);
+  useEffect(() => {
+    const didFetch = fetchGuardRef.current;
+    if (didFetch) return;
+    fetchGuardRef.current = true;
+
+    const fetchAppointments = async () => {
+      try {
+        const token = localStorage.getItem("authToken"); // from login
+        const res = await fetch("http://localhost:3000/api/patient/appointments", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error("Failed to load appointments");
+        
+        setAppointments(Array.isArray(data.appointments) ? data.appointments : []);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    fetchAppointments();
+  }, []);
 
   // Filter appointments for current patient (p1)
-  const patientAppointments = mockAppointments.filter((apt) => apt.patientId === "p1")
-
-  const filteredAppointments =
-    selectedStatus === "all" ? patientAppointments : patientAppointments.filter((apt) => apt.status === selectedStatus)
+const filteredAppointments =
+    selectedStatus === "all"
+      ? appointments
+      : appointments.filter((apt) => apt.status === selectedStatus);
 
   const upcomingAppointments = filteredAppointments.filter(
-    (apt) => apt.status === "scheduled" || apt.status === "checked-in",
-  )
-
+    (apt) => apt.status === "scheduled" || apt.status === "checked-in"
+  );
+  
+  
   const pastAppointments = filteredAppointments.filter(
-    (apt) => apt.status === "completed" || apt.status === "cancelled",
-  )
+    (apt) => apt.status === "completed" || apt.status === "canceled" || apt.status === "no_show" || apt.status === "checked_in"
+  );
+
 
   return (
     <div className="container max-w-5xl mx-auto py-8 px-4">
@@ -84,7 +109,7 @@ export default function PatientAppointmentsPage() {
               <h2 className="text-lg font-semibold mb-4">Upcoming</h2>
               <div className="bg-card rounded-xl border divide-y">
                 {upcomingAppointments.map((appointment) => (
-                  <AppointmentRow key={appointment.id} appointment={appointment} />
+                  <AppointmentRow key={appointment.appointment_id} appointment={appointment} />
                 ))}
               </div>
             </section>
@@ -96,7 +121,7 @@ export default function PatientAppointmentsPage() {
               <h2 className="text-lg font-semibold mb-4">Past</h2>
               <div className="bg-card rounded-xl border divide-y">
                 {pastAppointments.map((appointment) => (
-                  <AppointmentRow key={appointment.id} appointment={appointment} />
+                  <AppointmentRow key={appointment.appointment_id} appointment={appointment} />
                 ))}
               </div>
             </section>
@@ -108,7 +133,7 @@ export default function PatientAppointmentsPage() {
 }
 
 function AppointmentRow({ appointment }: { appointment: Appointment }) {
-  const appointmentDate = new Date(appointment.date)
+  const appointmentDate = new Date(appointment.start_at)
   const formattedDate = appointmentDate.toLocaleDateString("en-US", {
     weekday: "short",
     month: "short",

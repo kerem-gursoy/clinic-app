@@ -15,7 +15,7 @@ const statusConfig: Record<AppointmentStatus, { label: string; className: string
     label: "Scheduled",
     className: "bg-blue-50 text-blue-700",
   },
-  "checked-in": {
+  "checked_in": {
     label: "Checked In",
     className: "bg-green-50 text-green-700",
   },
@@ -27,9 +27,13 @@ const statusConfig: Record<AppointmentStatus, { label: string; className: string
     label: "Completed",
     className: "bg-gray-100 text-gray-600",
   },
-  cancelled: {
+  canceled: {
     label: "Cancelled",
     className: "bg-red-50 text-red-700",
+  },
+  no_show: {
+    label: "No_Show",
+    className: "bg-red-100 text-red-800",
   },
 }
 
