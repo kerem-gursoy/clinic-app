@@ -1,6 +1,7 @@
 import type { UserRole } from "./types";
 
-const DEFAULT_API_BASE_URL = "http://localhost:3000/api";
+const DEFAULT_API_BASE_URL =
+  process.env.NODE_ENV === "production" ? undefined : "http://localhost:3000/api";
 type ApiUserRole = "PATIENT" | "DOCTOR" | "STAFF";
 
 interface ApiAuthUser {
@@ -21,7 +22,13 @@ interface LoginSuccessPayload {
 }
 
 function getApiBaseUrl() {
-  return process.env.NEXT_PUBLIC_API_BASE_URL ?? DEFAULT_API_BASE_URL;
+  const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? DEFAULT_API_BASE_URL;
+
+  if (!apiBaseUrl) {
+    throw new Error("NEXT_PUBLIC_API_BASE_URL is not configured.");
+  }
+
+  return apiBaseUrl;
 }
 
 function getStoredToken() {
