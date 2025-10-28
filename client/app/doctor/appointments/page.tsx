@@ -54,7 +54,7 @@ const STATUS_FILTERS: Array<{ value: AppointmentStatus | "all"; label: string }>
 
 
 export default function DoctorAppointmentsPage() {
-  const [viewMode, setViewMode] = useState<ViewMode>("week")
+  const [viewMode, setViewMode] = useState<ViewMode>("agenda")
   const [currentDate, setCurrentDate] = useState(new Date())
   const [appointments, setAppointments] = useState<CalendarAppointment[]>([])
   const [isLoading, setIsLoading] = useState(true)
