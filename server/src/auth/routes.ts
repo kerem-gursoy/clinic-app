@@ -364,8 +364,31 @@ router.post("/auth/login", async (req: Request, res: Response) => {
     }
 
     const user = { user_id: row.user_id, role: row.role, email: row.email };
+    
+    // Fetch first name based on role
+    let firstName: string | null = null;
+    if (row.role === "PATIENT") {
+      const [patientRows] = await pool.query<RowDataPacket[]>(
+        "SELECT patient_fname FROM patient WHERE patient_id = ? LIMIT 1",
+        [row.user_id]
+      );
+      firstName = patientRows[0]?.patient_fname ?? null;
+    } else if (row.role === "DOCTOR") {
+      const [doctorRows] = await pool.query<RowDataPacket[]>(
+        "SELECT doc_fname FROM doctor WHERE doctor_id = ? LIMIT 1",
+        [row.user_id]
+      );
+      firstName = doctorRows[0]?.doc_fname ?? null;
+    } else if (row.role === "STAFF") {
+      const [staffRows] = await pool.query<RowDataPacket[]>(
+        "SELECT staff_first_name FROM staff WHERE staff_id = ? LIMIT 1",
+        [row.user_id]
+      );
+      firstName = staffRows[0]?.staff_first_name ?? null;
+    }
+
     const token = signToken(user);
-    return res.json({ token, user });
+    return res.json({ token, user: { ...user, first_name: firstName } });
   } catch (err) {
     console.error("Login failed", err);
     return res.status(500).json({ error: "Server error" });
@@ -500,7 +523,8 @@ router.get("/me", requireAuth, async (req: RequestWithUser, res: Response) => {
         [user_id]
       );
       const appointments = await fetchPatientAppointments(user_id, 5);
-      return res.json({ user: { user_id, role, email }, profile: rows[0] ?? null, appointments });
+      const firstName = rows[0]?.patient_fname ?? null;
+      return res.json({ user: { user_id, role, email, first_name: firstName }, profile: rows[0] ?? null, appointments });
     }
 
     if (role === "DOCTOR") {
@@ -509,12 +533,18 @@ router.get("/me", requireAuth, async (req: RequestWithUser, res: Response) => {
         [user_id]
       );
       const appointments = await fetchDoctorAppointments(user_id, 5);
-      return res.json({ user: { user_id, role, email }, profile: rows[0] ?? null, appointments });
+      const firstName = rows[0]?.doc_fname ?? null;
+      return res.json({ user: { user_id, role, email, first_name: firstName }, profile: rows[0] ?? null, appointments });
     }
 
     if (role === "STAFF") {
+      const [rows] = await pool.query<RowDataPacket[]>(
+        "SELECT * FROM staff WHERE staff_id = ? LIMIT 1",
+        [user_id]
+      );
       const appointments = await fetchStaffAppointments(10);
-      return res.json({ user: { user_id, role, email }, profile: null, appointments });
+      const firstName = rows[0]?.staff_first_name ?? null;
+      return res.json({ user: { user_id, role, email, first_name: firstName }, profile: rows[0] ?? null, appointments });
     }
 
     return res.status(400).json({ error: "Unknown role" });

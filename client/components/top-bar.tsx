@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils"
 
 interface TopBarProps {
   role: UserRole
+  userName: string
   onNewAppointment: () => void
   onLogout: () => Promise<void> | void
 }
@@ -44,7 +45,7 @@ const roleConfig = {
   },
 }
 
-export function TopBar({ role, onNewAppointment, onLogout }: TopBarProps) {
+export function TopBar({ role, userName, onNewAppointment, onLogout }: TopBarProps) {
   const pathname = usePathname()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
@@ -62,18 +63,10 @@ export function TopBar({ role, onNewAppointment, onLogout }: TopBarProps) {
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-card">
       <div className="flex h-16 items-center px-4 gap-4">
-        {/* Logo */}
-        <div className="flex items-center gap-2 font-semibold text-lg">
-          <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center text-primary-foreground">
-            A
-          </div>
-          <span className="hidden sm:inline">Appointments</span>
+        {/* Welcome Message */}
+        <div className="font-semibold text-lg">
+          Welcome, {userName}
         </div>
-
-        {/* Role Display */}
-        <Button variant="outline" size="sm" className="hidden md:flex bg-transparent pointer-events-none select-none">
-          {config.label}
-        </Button>
 
         {/* Desktop Navigation */}
         <nav className="hidden md:flex items-center gap-1 flex-1">
