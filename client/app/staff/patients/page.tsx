@@ -19,7 +19,6 @@ import { Label } from "@/components/ui/label"
 import { Search, User, Phone, Mail, Calendar, Plus } from "lucide-react"
 import { apiPath } from "@/app/lib/api"
 
-<<<<<<< HEAD
 interface StaffPatientResponse {
   patient_id: number
   name: string
@@ -37,8 +36,6 @@ interface StaffPatient {
   dob: string | null
 }
 
-=======
->>>>>>> 8864bb37d3b7286bd5cca5e0e4c70d99b2248d30
 export default function StaffPatientsPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [patients, setPatients] = useState<StaffPatient[]>([])

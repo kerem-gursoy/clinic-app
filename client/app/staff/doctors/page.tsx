@@ -1,16 +1,11 @@
 "use client"
 
-<<<<<<< HEAD
 import { useEffect, useMemo, useState } from "react"
-=======
-import { useState } from "react"
->>>>>>> 8864bb37d3b7286bd5cca5e0e4c70d99b2248d30
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { EmptyState } from "@/components/empty-state"
 import { Badge } from "@/components/ui/badge"
 import { Search, Phone, Mail, Stethoscope, Calendar } from "lucide-react"
-<<<<<<< HEAD
 import type { AppointmentStatus } from "@/lib/types"
 import { apiPath } from "@/app/lib/api"
 
@@ -126,20 +121,6 @@ export default function StaffDoctorsPage() {
           provider.email.toLowerCase().includes(searchQuery.toLowerCase()),
       ),
     [providers, searchQuery],
-=======
-import { mockProviders, mockAppointments } from "@/lib/mock-data"
-import type { Provider } from "@/lib/types"
-
-export default function StaffDoctorsPage() {
-  const [searchQuery, setSearchQuery] = useState("")
-  const [providers] = useState<Provider[]>(mockProviders)
-
-  const filteredProviders = providers.filter(
-    (provider) =>
-      provider.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      provider.specialty.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      provider.email.toLowerCase().includes(searchQuery.toLowerCase()),
->>>>>>> 8864bb37d3b7286bd5cca5e0e4c70d99b2248d30
   )
 
   return (
@@ -164,13 +145,9 @@ export default function StaffDoctorsPage() {
       </div>
 
       {/* Results */}
-<<<<<<< HEAD
       {isLoading ? (
         <div className="bg-card rounded-xl border p-8 text-center text-muted-foreground">Loading providers…</div>
       ) : searchQuery && filteredProviders.length === 0 ? (
-=======
-      {searchQuery && filteredProviders.length === 0 ? (
->>>>>>> 8864bb37d3b7286bd5cca5e0e4c70d99b2248d30
         <EmptyState
           icon={Search}
           title="No doctors found"
@@ -189,19 +166,8 @@ export default function StaffDoctorsPage() {
   )
 }
 
-<<<<<<< HEAD
 function ProviderRow({ provider }: { provider: StaffDoctor }) {
   const upcomingCount = provider.todaysAppointments
-=======
-function ProviderRow({ provider }: { provider: Provider }) {
-  // Get today's appointments for this provider
-  const today = new Date().toISOString().split("T")[0]
-  const todayAppointments = mockAppointments.filter((apt) => apt.providerId === provider.id && apt.date === today)
-
-  const upcomingCount = todayAppointments.filter(
-    (apt) => apt.status === "scheduled" || apt.status === "checked-in",
-  ).length
->>>>>>> 8864bb37d3b7286bd5cca5e0e4c70d99b2248d30
 
   return (
     <div className="p-4 hover:bg-muted/50 transition-colors">
@@ -258,7 +224,6 @@ function ProviderRow({ provider }: { provider: Provider }) {
     </div>
   )
 }
-<<<<<<< HEAD
 
 function normalizeStatus(status: string | null | undefined): AppointmentStatus {
   const value = (status ?? "scheduled").toLowerCase()
@@ -280,5 +245,3 @@ function normalizeStatus(status: string | null | undefined): AppointmentStatus {
       return "scheduled"
   }
 }
-=======
->>>>>>> 8864bb37d3b7286bd5cca5e0e4c70d99b2248d30
