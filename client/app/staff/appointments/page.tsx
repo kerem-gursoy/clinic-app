@@ -9,7 +9,6 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Calendar, User, ChevronLeft, ChevronRight, MoreVertical } from "lucide-react"
 import type { AppointmentStatus } from "@/lib/types"
 
-<<<<<<< HEAD
 interface StaffAppointmentResponse {
   appointment_id: number
   patient_id: number | null
@@ -38,8 +37,6 @@ interface StaffAppointmentItem {
   notes?: string | null
 }
 
-=======
->>>>>>> 8864bb37d3b7286bd5cca5e0e4c70d99b2248d30
 export default function StaffAppointmentsPage() {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [appointments, setAppointments] = useState<StaffAppointmentItem[]>([])

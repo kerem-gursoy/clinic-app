@@ -68,25 +68,6 @@ export function TopBar({ role, userName, onNewAppointment, onLogout }: TopBarPro
           Welcome, {userName}
         </div>
 
-<<<<<<< HEAD
-=======
-        {/* Role Switcher */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="hidden md:flex bg-transparent">
-              {config.label}
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start">
-            <DropdownMenuLabel>Switch Role</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => onRoleChange("patient")}>Patient</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onRoleChange("doctor")}>Doctor</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onRoleChange("staff")}>Staff</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-
->>>>>>> 8864bb37d3b7286bd5cca5e0e4c70d99b2248d30
         {/* Desktop Navigation */}
         <nav className="hidden md:flex items-center gap-1 flex-1">
           {config.tabs.map((tab) => (
