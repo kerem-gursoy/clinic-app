@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { StatusChip } from "@/components/status-chip"
 import { EmptyState } from "@/components/empty-state"
@@ -35,7 +35,23 @@ interface CalendarAppointment {
   notes?: string | null
 }
 
-type ViewMode = "week" | "day" | "month" | "agenda"
+type ViewMode = "week" | "day" | "agenda"
+
+const VIEW_OPTIONS: Array<{ value: ViewMode; label: string }> = [
+  { value: "week", label: "Week" },
+  { value: "day", label: "Day" },
+  { value: "agenda", label: "Agenda" },
+]
+
+const STATUS_FILTERS: Array<{ value: AppointmentStatus | "all"; label: string }> = [
+  { value: "all", label: "All" },
+  { value: "scheduled", label: "Scheduled" },
+  { value: "checked_in", label: "Checked In" },
+  { value: "completed", label: "Completed" },
+  { value: "canceled", label: "Canceled" },
+  { value: "no_show", label: "No-show" },
+]
+
 
 export default function DoctorAppointmentsPage() {
   const [viewMode, setViewMode] = useState<ViewMode>("week")
@@ -80,7 +96,6 @@ export default function DoctorAppointmentsPage() {
     }
   }, [])
 
-  const doctorAppointments = useMemo(() => appointments, [appointments])
 
   const goToPrevious = () => {
     const newDate = new Date(currentDate)
@@ -88,8 +103,6 @@ export default function DoctorAppointmentsPage() {
       newDate.setDate(newDate.getDate() - 7)
     } else if (viewMode === "day") {
       newDate.setDate(newDate.getDate() - 1)
-    } else if (viewMode === "month") {
-      newDate.setMonth(newDate.getMonth() - 1)
     }
     setCurrentDate(newDate)
   }
@@ -100,8 +113,6 @@ export default function DoctorAppointmentsPage() {
       newDate.setDate(newDate.getDate() + 7)
     } else if (viewMode === "day") {
       newDate.setDate(newDate.getDate() + 1)
-    } else if (viewMode === "month") {
-      newDate.setMonth(newDate.getMonth() + 1)
     }
     setCurrentDate(newDate)
   }
@@ -124,8 +135,6 @@ export default function DoctorAppointmentsPage() {
         day: "numeric",
         year: "numeric",
       })
-    } else if (viewMode === "month") {
-      return currentDate.toLocaleDateString("en-US", { month: "long", year: "numeric" })
     }
     return ""
   }
@@ -141,90 +150,36 @@ export default function DoctorAppointmentsPage() {
 
         {/* View Mode Switcher */}
         <div className="flex items-center gap-2">
-          <Button
-            variant={viewMode === "week" ? "default" : "outline"}
-            size="sm"
-            className="rounded-full"
-            onClick={() => setViewMode("week")}
-          >
-            Week
-          </Button>
-          <Button
-            variant={viewMode === "day" ? "default" : "outline"}
-            size="sm"
-            className="rounded-full"
-            onClick={() => setViewMode("day")}
-          >
-            Day
-          </Button>
-          <Button
-            variant={viewMode === "agenda" ? "default" : "outline"}
-            size="sm"
-            className="rounded-full"
-            onClick={() => setViewMode("agenda")}
-          >
-            Agenda
-          </Button>
+          {VIEW_OPTIONS.map(({ value, label }) => (
+            <Button
+              key={value}
+              variant={viewMode === value ? "default" : "outline"}
+              size="sm"
+              className="rounded-full"
+              onClick={() => setViewMode(value)}
+            >
+              {label}
+            </Button>
+          ))}
         </div>
       </div>
 
       {/* Status Filter (agenda view only) */}
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        <Button
-          variant={statusFilter === "all" ? "default" : "outline"}
-          size="sm"
-          className="rounded-full"
-          onClick={() => setStatusFilter("all")}
-          disabled={viewMode !== "agenda"}
-        >
-          All
-        </Button>
-        <Button
-          variant={statusFilter === "scheduled" ? "default" : "outline"}
-          size="sm"
-          className="rounded-full"
-          onClick={() => setStatusFilter("scheduled")}
-          disabled={viewMode !== "agenda"}
-        >
-          Scheduled
-        </Button>
-        <Button
-          variant={statusFilter === "checked_in" ? "default" : "outline"}
-          size="sm"
-          className="rounded-full"
-          onClick={() => setStatusFilter("checked_in")}
-          disabled={viewMode !== "agenda"}
-        >
-          Checked In
-        </Button>
-        <Button
-          variant={statusFilter === "completed" ? "default" : "outline"}
-          size="sm"
-          className="rounded-full"
-          onClick={() => setStatusFilter("completed")}
-          disabled={viewMode !== "agenda"}
-        >
-          Completed
-        </Button>
-        <Button
-          variant={statusFilter === "canceled" ? "default" : "outline"}
-          size="sm"
-          className="rounded-full"
-          onClick={() => setStatusFilter("canceled")}
-          disabled={viewMode !== "agenda"}
-        >
-          Canceled
-        </Button>
-        <Button
-          variant={statusFilter === "no_show" ? "default" : "outline"}
-          size="sm"
-          className="rounded-full"
-          onClick={() => setStatusFilter("no_show")}
-          disabled={viewMode !== "agenda"}
-        >
-          No-show
-        </Button>
-      </div>
+      {viewMode === "agenda" && (
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          {STATUS_FILTERS.map(({ value, label }) => (
+            <Button
+              key={value}
+              variant={statusFilter === value ? "default" : "outline"}
+              size="sm"
+              className="rounded-full"
+              onClick={() => setStatusFilter(value)}
+            >
+              {label}
+            </Button>
+          ))}
+        </div>
+      )}
       {/* Calendar Controls */}
       <div className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -244,16 +199,16 @@ export default function DoctorAppointmentsPage() {
       {/* Calendar View */}
       {isLoading ? (
         <div className="bg-card rounded-xl border p-8 text-center text-muted-foreground">Loading schedule…</div>
-      ) : doctorAppointments.length === 0 ? (
+      ) : appointments.length === 0 ? (
         <EmptyState
           icon={Calendar}
           title="No appointments found"
           description="Your appointments will appear here once they are scheduled."
         />
       ) : viewMode === "agenda" ? (
-        <AgendaView appointments={doctorAppointments} statusFilter={statusFilter} />
+        <AgendaView appointments={appointments} statusFilter={statusFilter} />
       ) : (
-        <WeekView appointments={doctorAppointments} currentDate={currentDate} />
+        <WeekView appointments={appointments} currentDate={currentDate} />
       )}
     </div>
   )
@@ -347,8 +302,8 @@ function AgendaView({ appointments, statusFilter }: { appointments: CalendarAppo
     return (
       <EmptyState
         icon={Calendar}
-        title="No upcoming appointments"
-        description="Your schedule is clear. Upcoming appointments will appear here."
+        title="No appointments"
+        description="No appointments match the selected filter."
       />
     )
   }
