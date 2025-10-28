@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { StatusChip } from "@/components/status-chip"
 import { EmptyState } from "@/components/empty-state"
@@ -40,6 +41,7 @@ export default function StaffAppointmentsPage() {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [appointments, setAppointments] = useState<StaffAppointmentItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const router = useRouter()
 
   useEffect(() => {
     let cancelled = false
@@ -135,6 +137,9 @@ export default function StaffAppointmentsPage() {
           </Button>
           <Button variant="outline" size="icon" onClick={goToNext}>
             <ChevronRight className="h-4 w-4" />
+          </Button>
+          <Button size="sm" onClick={() => router.push("/appointments/new")} className="ml-2 hidden sm:inline">
+            New Appointment
           </Button>
         </div>
         <h2 className="text-lg font-semibold">{formattedDate}</h2>

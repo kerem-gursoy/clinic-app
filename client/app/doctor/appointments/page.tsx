@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { StatusChip } from "@/components/status-chip"
 import { EmptyState } from "@/components/empty-state"
@@ -59,6 +60,7 @@ export default function DoctorAppointmentsPage() {
   const [appointments, setAppointments] = useState<CalendarAppointment[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState<AppointmentStatus | "all">("all")
+  const router = useRouter()
 
   useEffect(() => {
     let cancelled = false
@@ -161,6 +163,11 @@ export default function DoctorAppointmentsPage() {
               {label}
             </Button>
           ))}
+        </div>
+        <div className="flex items-center gap-2">
+          <Button size="sm" onClick={() => router.push("/appointments/new")} className="rounded-full">
+            + New Appointment
+          </Button>
         </div>
       </div>
 
