@@ -1,4 +1,4 @@
-export type AppointmentStatus = "draft" | "scheduled" | "checked-in" | "in-room" | "completed" | "cancelled"
+export type AppointmentStatus = "scheduled" | "checked_in" | "completed" | "canceled" | "no_show"
 
 export type UserRole = "patient" | "doctor" | "staff"
 

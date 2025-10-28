@@ -78,7 +78,7 @@ export async function fetchCurrentUser(): Promise<AuthUser | null> {
     return null;
   }
 
-  const response = await fetch(`${getApiBaseUrl()}/auth/me`, {
+  const response = await fetch(`${getApiBaseUrl()}/me`, {
     method: "GET",
     headers: { Authorization: `Bearer ${token}` },
     credentials: "include",

@@ -1,22 +1,77 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { EmptyState } from "@/components/empty-state"
 import { Search, User, Phone, Mail, Calendar, Plus } from "lucide-react"
-import { mockPatients } from "@/lib/mock-data"
-import type { Patient } from "@/lib/types"
+
+interface DoctorPatientResponse {
+  patient_id: number
+  name: string
+  email: string | null
+  phone: string | null
+  last_visit: string | null
+}
+
+interface DoctorPatient {
+  id: string
+  patientId: number
+  name: string
+  email: string
+  phone: string
+  lastVisit: string | null
+}
 
 export default function DoctorPatientsPage() {
   const [searchQuery, setSearchQuery] = useState("")
-  const [patients] = useState<Patient[]>(mockPatients)
+  const [patients, setPatients] = useState<DoctorPatient[]>([])
+  const [isLoading, setIsLoading] = useState(true)
 
-  const filteredPatients = patients.filter(
-    (patient) =>
-      patient.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      patient.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      patient.phone.includes(searchQuery),
+  useEffect(() => {
+    let cancelled = false
+
+    const fetchPatients = async () => {
+      try {
+        const token = typeof window !== "undefined" ? window.localStorage.getItem("authToken") : null
+        const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3000/api"
+        const res = await fetch(`${baseUrl}/doctor/patients`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+          credentials: "include",
+        })
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok || !Array.isArray(data.patients)) {
+          throw new Error("Failed to load patients")
+        }
+        if (cancelled) return
+        setPatients(data.patients.map(mapDoctorPatient))
+      } catch (err) {
+        console.error(err)
+        if (!cancelled) {
+          setPatients([])
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false)
+        }
+      }
+    }
+
+    fetchPatients()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const filteredPatients = useMemo(
+    () =>
+      patients.filter(
+        (patient) =>
+          patient.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          patient.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          patient.phone.includes(searchQuery),
+      ),
+    [patients, searchQuery],
   )
 
   return (
@@ -41,7 +96,9 @@ export default function DoctorPatientsPage() {
       </div>
 
       {/* Results */}
-      {searchQuery && filteredPatients.length === 0 ? (
+      {isLoading ? (
+        <div className="bg-card rounded-xl border p-8 text-center text-muted-foreground">Loading patients…</div>
+      ) : searchQuery && filteredPatients.length === 0 ? (
         <EmptyState
           icon={Search}
           title="No patients found"
@@ -64,9 +121,7 @@ export default function DoctorPatientsPage() {
   )
 }
 
-function PatientRow({ patient }: { patient: Patient }) {
-  const age = new Date().getFullYear() - new Date(patient.dateOfBirth).getFullYear()
-
+function PatientRow({ patient }: { patient: DoctorPatient }) {
   return (
     <div className="p-4 hover:bg-muted/50 transition-colors">
       <div className="flex items-start justify-between gap-4">
@@ -83,9 +138,7 @@ function PatientRow({ patient }: { patient: Patient }) {
             <div className="flex flex-col gap-1 text-sm text-muted-foreground">
               <div className="flex items-center gap-1.5">
                 <Calendar className="h-3.5 w-3.5" />
-                <span>
-                  {age} years old • DOB: {new Date(patient.dateOfBirth).toLocaleDateString("en-US")}
-                </span>
+                <span>Last visit: {patient.lastVisit ? new Date(patient.lastVisit).toLocaleString() : "Unknown"}</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <Mail className="h-3.5 w-3.5" />
@@ -96,15 +149,6 @@ function PatientRow({ patient }: { patient: Patient }) {
                 <span>{patient.phone}</span>
               </div>
             </div>
-
-            {patient.insuranceProvider && (
-              <div className="mt-2 text-sm">
-                <span className="text-muted-foreground">Insurance: </span>
-                <span className="font-medium">
-                  {patient.insuranceProvider} ({patient.insuranceId})
-                </span>
-              </div>
-            )}
           </div>
         </div>
 
@@ -121,4 +165,15 @@ function PatientRow({ patient }: { patient: Patient }) {
       </div>
     </div>
   )
+}
+
+function mapDoctorPatient(patient: DoctorPatientResponse): DoctorPatient {
+  return {
+    id: `doctor-patient-${patient.patient_id}`,
+    patientId: patient.patient_id,
+    name: patient.name,
+    email: patient.email ?? "N/A",
+    phone: patient.phone ?? "N/A",
+    lastVisit: patient.last_visit ?? null,
+  }
 }

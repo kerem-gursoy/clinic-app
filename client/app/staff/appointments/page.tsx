@@ -1,17 +1,80 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { StatusChip } from "@/components/status-chip"
 import { EmptyState } from "@/components/empty-state"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Calendar, User, ChevronLeft, ChevronRight, MoreVertical } from "lucide-react"
-import { mockAppointments } from "@/lib/mock-data"
-import type { Appointment, AppointmentStatus } from "@/lib/types"
+import type { AppointmentStatus } from "@/lib/types"
+
+interface StaffAppointmentResponse {
+  appointment_id: number
+  patient_id: number | null
+  doctor_id: number | null
+  patientName: string | null
+  doctorName: string | null
+  status: string | null
+  reason: string | null
+  start_at: string | null
+  time: string | null
+  duration: number | null
+  notes?: string | null
+}
+
+interface StaffAppointmentItem {
+  id: string
+  appointmentId: number
+  patientId: number | null
+  patientName: string
+  doctorName: string
+  status: AppointmentStatus
+  date: string
+  time: string
+  duration: number
+  reason: string
+  notes?: string | null
+}
 
 export default function StaffAppointmentsPage() {
   const [currentDate, setCurrentDate] = useState(new Date())
-  const [appointments, setAppointments] = useState<Appointment[]>(mockAppointments)
+  const [appointments, setAppointments] = useState<StaffAppointmentItem[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+
+    const fetchAppointments = async () => {
+      try {
+        const token = typeof window !== "undefined" ? window.localStorage.getItem("authToken") : null
+        const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3000/api"
+        const res = await fetch(`${baseUrl}/staff/appointments`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+          credentials: "include",
+        })
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok || !Array.isArray(data.appointments)) {
+          throw new Error("Failed to load appointments")
+        }
+        if (cancelled) return
+        setAppointments(data.appointments.map(mapStaffAppointment))
+      } catch (err) {
+        console.error(err)
+        if (!cancelled) {
+          setAppointments([])
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false)
+        }
+      }
+    }
+
+    fetchAppointments()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const goToPrevious = () => {
     const newDate = new Date(currentDate)
@@ -30,15 +93,17 @@ export default function StaffAppointmentsPage() {
   }
 
   const currentDateStr = currentDate.toISOString().split("T")[0]
-  const todayAppointments = appointments
-    .filter((apt) => apt.date === currentDateStr)
-    .sort((a, b) => a.time.localeCompare(b.time))
+  const todayAppointments = useMemo(
+    () =>
+      appointments
+        .filter((apt) => apt.date === currentDateStr)
+        .sort((a, b) => a.time.localeCompare(b.time)),
+    [appointments, currentDateStr],
+  )
 
   const handleStatusChange = (appointmentId: string, newStatus: AppointmentStatus) => {
     setAppointments((prev) =>
-      prev.map((apt) =>
-        apt.id === appointmentId ? { ...apt, status: newStatus, updatedAt: new Date().toISOString() } : apt,
-      ),
+      prev.map((apt) => (apt.id === appointmentId ? { ...apt, status: newStatus } : apt)),
     )
   }
 
@@ -76,7 +141,9 @@ export default function StaffAppointmentsPage() {
       </div>
 
       {/* Appointments List */}
-      {todayAppointments.length === 0 ? (
+      {isLoading ? (
+        <div className="bg-card rounded-xl border p-8 text-center text-muted-foreground">Loading appointments…</div>
+      ) : todayAppointments.length === 0 ? (
         <EmptyState
           icon={Calendar}
           title="No appointments scheduled"
@@ -101,7 +168,7 @@ function AppointmentRow({
   appointment,
   onStatusChange,
 }: {
-  appointment: Appointment
+  appointment: StaffAppointmentItem
   onStatusChange: (status: AppointmentStatus) => void
 }) {
   return (
@@ -125,9 +192,7 @@ function AppointmentRow({
             <div className="flex flex-col gap-1 text-sm text-muted-foreground">
               <div className="flex items-center gap-1.5">
                 <User className="h-3.5 w-3.5" />
-                <span>
-                  {appointment.providerName} • {appointment.providerSpecialty}
-                </span>
+                <span>{appointment.doctorName}</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <Calendar className="h-3.5 w-3.5" />
@@ -149,10 +214,10 @@ function AppointmentRow({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={() => onStatusChange("scheduled")}>Mark as Scheduled</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onStatusChange("checked-in")}>Check In</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onStatusChange("in-room")}>Move to Room</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onStatusChange("checked_in")}>Check In</DropdownMenuItem>
               <DropdownMenuItem onClick={() => onStatusChange("completed")}>Mark Complete</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onStatusChange("cancelled")} className="text-destructive">
+              <DropdownMenuItem onClick={() => onStatusChange("no_show")}>Mark No-show</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onStatusChange("canceled")} className="text-destructive">
                 Cancel
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -175,4 +240,54 @@ function AppointmentRow({
       </div>
     </div>
   )
+}
+
+function mapStaffAppointment(appt: StaffAppointmentResponse): StaffAppointmentItem {
+  const start = appt.start_at ? new Date(appt.start_at) : null
+  const date = start ? start.toISOString().split("T")[0] : ""
+  const time = formatTime(start)
+
+  return {
+    id: `staff-appointment-${appt.appointment_id}`,
+    appointmentId: appt.appointment_id,
+    patientId: appt.patient_id,
+    patientName: appt.patientName ?? "Unknown patient",
+    doctorName: appt.doctorName ?? "Unknown doctor",
+    status: normalizeStatus(appt.status),
+    date,
+    time,
+    duration: appt.duration ?? 0,
+    reason: appt.reason ?? "General visit",
+    notes: appt.notes ?? null,
+  }
+}
+
+function normalizeStatus(status: string | null | undefined): AppointmentStatus {
+  const value = (status ?? "scheduled").toLowerCase()
+  switch (value) {
+    case "completed":
+      return "completed"
+    case "checked-in":
+    case "checked_in":
+    case "in-room":
+    case "in_room":
+      return "checked_in"
+    case "cancelled":
+    case "canceled":
+      return "canceled"
+    case "no_show":
+      return "no_show"
+    case "scheduled":
+    default:
+      return "scheduled"
+  }
+}
+
+function formatTime(date: Date | null): string {
+  if (!date || Number.isNaN(date.getTime())) {
+    return "00:00"
+  }
+  const hours = date.getHours().toString().padStart(2, "0")
+  const minutes = date.getMinutes().toString().padStart(2, "0")
+  return `${hours}:${minutes}`
 }

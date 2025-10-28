@@ -4,11 +4,10 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { EmptyState } from "@/components/empty-state"
 import { Upload, FileText, Download, Trash2 } from "lucide-react"
-import { mockFiles } from "@/lib/mock-data"
 import type { FileUpload } from "@/lib/types"
 
 export default function PatientFilesPage() {
-  const [files] = useState<FileUpload[]>(mockFiles)
+  const [files] = useState<FileUpload[]>([])
 
   const formatFileSize = (bytes: number) => {
     if (bytes < 1024) return bytes + " B"

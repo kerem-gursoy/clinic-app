@@ -5,10 +5,34 @@ import { Button } from "@/components/ui/button";
 import { StatusChip } from "@/components/status-chip";
 import { EmptyState } from "@/components/empty-state";
 import { Calendar, Clock, User, Filter } from "lucide-react";
-import type { Appointment, AppointmentStatus } from "@/lib/types";
+import type { AppointmentStatus } from "@/lib/types";
+
+interface PatientAppointmentResponse {
+  appointment_id: number;
+  patient_id: number;
+  doctor_id: number | null;
+  providerName: string | null;
+  reason: string | null;
+  status: string | null;
+  start_at: string | null;
+  time: string | null;
+  duration: number | null;
+  notes?: string | null;
+}
+
+interface PatientAppointment {
+  appointment_id: number;
+  providerName: string;
+  reason: string;
+  status: AppointmentStatus;
+  start_at: string | null;
+  displayTime: string;
+  duration: number;
+  notes?: string | null;
+}
 
 export default function PatientAppointmentsPage() {
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [appointments, setAppointments] = useState<PatientAppointment[]>([]);
   const [selectedStatus, setSelectedStatus] = useState<AppointmentStatus | "all">("all");
 
   const fetchGuardRef = useRef(false);
@@ -19,14 +43,21 @@ export default function PatientAppointmentsPage() {
 
     const fetchAppointments = async () => {
       try {
-        const token = localStorage.getItem("authToken"); // from login
-        const res = await fetch("http://localhost:3000/api/patient/appointments", {
-          headers: { Authorization: `Bearer ${token}` },
+        const token = typeof window !== "undefined" ? localStorage.getItem("authToken") : null;
+        const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3000/api";
+        const res = await fetch(`${baseUrl}/patient/appointments`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+          credentials: "include",
         });
-        const data = await res.json();
-        if (!res.ok) throw new Error("Failed to load appointments");
-        
-        setAppointments(Array.isArray(data.appointments) ? data.appointments : []);
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error("Failed to load appointments");
+        }
+
+        const parsed = Array.isArray(data.appointments)
+          ? (data.appointments as PatientAppointmentResponse[]).map(mapPatientAppointment)
+          : [];
+        setAppointments(parsed);
       } catch (err) {
         console.error(err);
       }
@@ -40,13 +71,12 @@ const filteredAppointments =
       ? appointments
       : appointments.filter((apt) => apt.status === selectedStatus);
 
-  const upcomingAppointments = filteredAppointments.filter(
-    (apt) => apt.status === "scheduled" || apt.status === "checked-in"
+  const upcomingAppointments = filteredAppointments.filter((apt) =>
+    ["scheduled", "checked_in"].includes(apt.status)
   );
-  
-  
-  const pastAppointments = filteredAppointments.filter(
-    (apt) => apt.status === "completed" || apt.status === "canceled" || apt.status === "no_show" || apt.status === "checked_in"
+
+  const pastAppointments = filteredAppointments.filter((apt) =>
+    ["completed", "canceled", "no_show"].includes(apt.status)
   );
 
 
@@ -86,12 +116,12 @@ const filteredAppointments =
           Completed
         </Button>
         <Button
-          variant={selectedStatus === "cancelled" ? "default" : "outline"}
+          variant={selectedStatus === "canceled" ? "default" : "outline"}
           size="sm"
           className="rounded-full"
-          onClick={() => setSelectedStatus("cancelled")}
+          onClick={() => setSelectedStatus("canceled")}
         >
-          Cancelled
+          Canceled
         </Button>
       </div>
 
@@ -132,7 +162,7 @@ const filteredAppointments =
   )
 }
 
-function AppointmentRow({ appointment }: { appointment: Appointment }) {
+function AppointmentRow({ appointment }: { appointment: PatientAppointment }) {
   const appointmentDate = new Date(appointment.start_at)
   const formattedDate = appointmentDate.toLocaleDateString("en-US", {
     weekday: "short",
@@ -145,12 +175,12 @@ function AppointmentRow({ appointment }: { appointment: Appointment }) {
     <div className="p-4 hover:bg-muted/50 transition-colors cursor-pointer">
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-3 mb-2">
-            <StatusChip status={appointment.status} />
-            <span className="text-sm text-muted-foreground">{formattedDate}</span>
-          </div>
+                <div className="flex items-center gap-3 mb-2">
+                  <StatusChip status={appointment.status} />
+                  <span className="text-sm text-muted-foreground">{formattedDate}</span>
+                </div>
 
-          <h3 className="font-semibold mb-1">{appointment.reason}</h3>
+                <h3 className="font-semibold mb-1">{appointment.reason}</h3>
 
           <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-sm text-muted-foreground">
             <div className="flex items-center gap-1.5">
@@ -159,13 +189,13 @@ function AppointmentRow({ appointment }: { appointment: Appointment }) {
             </div>
             <div className="flex items-center gap-1.5">
               <Clock className="h-4 w-4" />
-              <span>
-                {appointment.time} ({appointment.duration} min)
+                    <span>
+                      {appointment.displayTime} ({appointment.duration} min)
               </span>
             </div>
           </div>
 
-          {appointment.notes && <p className="text-sm text-muted-foreground mt-2">{appointment.notes}</p>}
+                {appointment.notes && <p className="text-sm text-muted-foreground mt-2">{appointment.notes}</p>}
         </div>
 
         <Button variant="ghost" size="sm">
@@ -174,4 +204,49 @@ function AppointmentRow({ appointment }: { appointment: Appointment }) {
       </div>
     </div>
   )
+}
+
+function mapPatientAppointment(appt: PatientAppointmentResponse): PatientAppointment {
+  return {
+    appointment_id: appt.appointment_id,
+    providerName: appt.providerName ?? "Clinic team",
+    reason: appt.reason ?? "General visit",
+    status: normalizeStatus(appt.status),
+    start_at: appt.start_at,
+    displayTime: formatTime(appt.start_at),
+    duration: appt.duration ?? 0,
+    notes: appt.notes ?? null,
+  };
+}
+
+function normalizeStatus(status: string | null | undefined): AppointmentStatus {
+  const value = (status ?? "scheduled").toLowerCase();
+  switch (value) {
+    case "completed":
+      return "completed";
+    case "cancelled":
+    case "canceled":
+      return "canceled";
+    case "checked-in":
+    case "checked_in":
+    case "in-room":
+    case "in_room":
+      return "checked_in";
+    case "no_show":
+      return "no_show";
+    case "scheduled":
+    default:
+      return "scheduled";
+  }
+}
+
+function formatTime(startAt: string | null | undefined): string {
+  if (!startAt) return "00:00";
+  const date = new Date(startAt);
+  if (Number.isNaN(date.getTime())) {
+    return "00:00";
+  }
+  const hours = date.getHours().toString().padStart(2, "0");
+  const minutes = date.getMinutes().toString().padStart(2, "0");
+  return `${hours}:${minutes}`;
 }

@@ -1,22 +1,86 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { StatusChip } from "@/components/status-chip"
 import { EmptyState } from "@/components/empty-state"
 import { Calendar, ChevronLeft, ChevronRight, Clock, User } from "lucide-react"
-import { mockAppointments } from "@/lib/mock-data"
-import type { Appointment } from "@/lib/types"
+import type { AppointmentStatus } from "@/lib/types"
 import { cn } from "@/lib/utils"
+
+interface DoctorAppointmentResponse {
+  appointment_id: number
+  patient_id: number | null
+  provider_id: number
+  providerName: string | null
+  patientName: string | null
+  reason: string | null
+  status: string | null
+  start_at: string | null
+  time: string | null
+  duration: number | null
+  notes?: string | null
+}
+
+interface CalendarAppointment {
+  id: string
+  appointmentId: number
+  patientId: number | null
+  patientName: string
+  reason: string
+  status: AppointmentStatus
+  date: string
+  time: string
+  duration: number
+  notes?: string | null
+}
 
 type ViewMode = "week" | "day" | "month" | "agenda"
 
 export default function DoctorAppointmentsPage() {
   const [viewMode, setViewMode] = useState<ViewMode>("week")
   const [currentDate, setCurrentDate] = useState(new Date())
+  const [appointments, setAppointments] = useState<CalendarAppointment[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [statusFilter, setStatusFilter] = useState<AppointmentStatus | "all">("all")
 
-  // Filter appointments for current doctor (pr1)
-  const doctorAppointments = mockAppointments.filter((apt) => apt.providerId === "pr1")
+  useEffect(() => {
+    let cancelled = false
+
+    const fetchAppointments = async () => {
+      try {
+        const token = typeof window !== "undefined" ? window.localStorage.getItem("authToken") : null
+        const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3000/api"
+        const res = await fetch(`${baseUrl}/doctor/appointments`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+          credentials: "include",
+        })
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok || !Array.isArray(data.appointments)) {
+          throw new Error("Failed to load appointments")
+        }
+
+        if (cancelled) return
+        setAppointments(data.appointments.map(mapAppointment))
+      } catch (err) {
+        console.error(err)
+        if (!cancelled) {
+          setAppointments([])
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false)
+        }
+      }
+    }
+
+    fetchAppointments()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const doctorAppointments = useMemo(() => appointments, [appointments])
 
   const goToPrevious = () => {
     const newDate = new Date(currentDate)
@@ -104,6 +168,63 @@ export default function DoctorAppointmentsPage() {
         </div>
       </div>
 
+      {/* Status Filter (agenda view only) */}
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <Button
+          variant={statusFilter === "all" ? "default" : "outline"}
+          size="sm"
+          className="rounded-full"
+          onClick={() => setStatusFilter("all")}
+          disabled={viewMode !== "agenda"}
+        >
+          All
+        </Button>
+        <Button
+          variant={statusFilter === "scheduled" ? "default" : "outline"}
+          size="sm"
+          className="rounded-full"
+          onClick={() => setStatusFilter("scheduled")}
+          disabled={viewMode !== "agenda"}
+        >
+          Scheduled
+        </Button>
+        <Button
+          variant={statusFilter === "checked_in" ? "default" : "outline"}
+          size="sm"
+          className="rounded-full"
+          onClick={() => setStatusFilter("checked_in")}
+          disabled={viewMode !== "agenda"}
+        >
+          Checked In
+        </Button>
+        <Button
+          variant={statusFilter === "completed" ? "default" : "outline"}
+          size="sm"
+          className="rounded-full"
+          onClick={() => setStatusFilter("completed")}
+          disabled={viewMode !== "agenda"}
+        >
+          Completed
+        </Button>
+        <Button
+          variant={statusFilter === "canceled" ? "default" : "outline"}
+          size="sm"
+          className="rounded-full"
+          onClick={() => setStatusFilter("canceled")}
+          disabled={viewMode !== "agenda"}
+        >
+          Canceled
+        </Button>
+        <Button
+          variant={statusFilter === "no_show" ? "default" : "outline"}
+          size="sm"
+          className="rounded-full"
+          onClick={() => setStatusFilter("no_show")}
+          disabled={viewMode !== "agenda"}
+        >
+          No-show
+        </Button>
+      </div>
       {/* Calendar Controls */}
       <div className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -121,8 +242,16 @@ export default function DoctorAppointmentsPage() {
       </div>
 
       {/* Calendar View */}
-      {viewMode === "agenda" ? (
-        <AgendaView appointments={doctorAppointments} />
+      {isLoading ? (
+        <div className="bg-card rounded-xl border p-8 text-center text-muted-foreground">Loading schedule…</div>
+      ) : doctorAppointments.length === 0 ? (
+        <EmptyState
+          icon={Calendar}
+          title="No appointments found"
+          description="Your appointments will appear here once they are scheduled."
+        />
+      ) : viewMode === "agenda" ? (
+        <AgendaView appointments={doctorAppointments} statusFilter={statusFilter} />
       ) : (
         <WeekView appointments={doctorAppointments} currentDate={currentDate} />
       )}
@@ -130,7 +259,7 @@ export default function DoctorAppointmentsPage() {
   )
 }
 
-function WeekView({ appointments, currentDate }: { appointments: Appointment[]; currentDate: Date }) {
+function WeekView({ appointments, currentDate }: { appointments: CalendarAppointment[]; currentDate: Date }) {
   const weekStart = new Date(currentDate)
   weekStart.setDate(currentDate.getDate() - currentDate.getDay())
 
@@ -205,12 +334,16 @@ function WeekView({ appointments, currentDate }: { appointments: Appointment[]; 
   )
 }
 
-function AgendaView({ appointments }: { appointments: Appointment[] }) {
-  const upcomingAppointments = appointments
-    .filter((apt) => apt.status === "scheduled" || apt.status === "checked-in")
-    .sort((a, b) => new Date(a.date + " " + a.time).getTime() - new Date(b.date + " " + b.time).getTime())
+function AgendaView({ appointments, statusFilter }: { appointments: CalendarAppointment[]; statusFilter: AppointmentStatus | "all" }) {
+  const sortedAppointments = appointments
+    .filter((apt) => statusFilter === "all" || apt.status === statusFilter)
+    .sort(
+      (a, b) =>
+        new Date(`${a.date}T${a.time}`).getTime() -
+        new Date(`${b.date}T${b.time}`).getTime()
+    )
 
-  if (upcomingAppointments.length === 0) {
+  if (sortedAppointments.length === 0) {
     return (
       <EmptyState
         icon={Calendar}
@@ -222,7 +355,7 @@ function AgendaView({ appointments }: { appointments: Appointment[] }) {
 
   return (
     <div className="bg-card rounded-xl border divide-y">
-      {upcomingAppointments.map((appointment) => {
+      {sortedAppointments.map((appointment) => {
         const appointmentDate = new Date(appointment.date)
         const formattedDate = appointmentDate.toLocaleDateString("en-US", {
           weekday: "short",
@@ -267,4 +400,53 @@ function AgendaView({ appointments }: { appointments: Appointment[] }) {
       })}
     </div>
   )
+}
+
+function mapAppointment(appt: DoctorAppointmentResponse): CalendarAppointment {
+  const start = appt.start_at ? new Date(appt.start_at) : null
+  const date = start ? start.toISOString().split("T")[0] : ""
+  const time = formatTimeForCalendar(start)
+
+  return {
+    id: `appointment-${appt.appointment_id}`,
+    appointmentId: appt.appointment_id,
+    patientId: appt.patient_id,
+    patientName: appt.patientName ?? "Unknown patient",
+    reason: appt.reason ?? "General visit",
+    status: normalizeStatus(appt.status),
+    date,
+    time,
+    duration: appt.duration ?? 0,
+    notes: appt.notes ?? null,
+  }
+}
+
+function normalizeStatus(status: string | null | undefined): AppointmentStatus {
+  const value = (status ?? "scheduled").toLowerCase()
+  switch (value) {
+    case "completed":
+      return "completed"
+    case "cancelled":
+    case "canceled":
+      return "canceled"
+    case "checked-in":
+    case "checked_in":
+    case "in-room":
+    case "in_room":
+      return "checked_in"
+    case "no_show":
+      return "no_show"
+    case "scheduled":
+    default:
+      return "scheduled"
+  }
+}
+
+function formatTimeForCalendar(date: Date | null): string {
+  if (!date || Number.isNaN(date.getTime())) {
+    return "00:00"
+  }
+  const hours = date.getHours().toString().padStart(2, "0")
+  const minutes = date.getMinutes().toString().padStart(2, "0")
+  return `${hours}:${minutes}`
 }

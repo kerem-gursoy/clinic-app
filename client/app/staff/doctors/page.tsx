@@ -1,23 +1,127 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { EmptyState } from "@/components/empty-state"
 import { Badge } from "@/components/ui/badge"
 import { Search, Phone, Mail, Stethoscope, Calendar } from "lucide-react"
-import { mockProviders, mockAppointments } from "@/lib/mock-data"
-import type { Provider } from "@/lib/types"
+import type { AppointmentStatus } from "@/lib/types"
+
+interface StaffDoctorResponse {
+  doctor_id: number
+  name: string
+  specialty: string | null
+  email: string | null
+  phone: string | null
+}
+
+interface StaffDoctor {
+  id: string
+  doctorId: number
+  name: string
+  specialty: string
+  email: string
+  phone: string
+  todaysAppointments: number
+}
+
+interface StaffAppointmentResponse {
+  appointment_id: number
+  doctor_id: number | null
+  status: string | null
+  start_at: string | null
+}
 
 export default function StaffDoctorsPage() {
   const [searchQuery, setSearchQuery] = useState("")
-  const [providers] = useState<Provider[]>(mockProviders)
+  const [providers, setProviders] = useState<StaffDoctor[]>([])
+  const [isLoading, setIsLoading] = useState(true)
 
-  const filteredProviders = providers.filter(
-    (provider) =>
-      provider.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      provider.specialty.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      provider.email.toLowerCase().includes(searchQuery.toLowerCase()),
+  useEffect(() => {
+    let cancelled = false
+
+    const fetchData = async () => {
+      try {
+        const token = typeof window !== "undefined" ? window.localStorage.getItem("authToken") : null
+        const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3000/api"
+
+        const [doctorRes, appointmentsRes] = await Promise.all([
+          fetch(`${baseUrl}/staff/doctors`, {
+            headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+            credentials: "include",
+          }),
+          fetch(`${baseUrl}/staff/appointments?limit=500`, {
+            headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+            credentials: "include",
+          }),
+        ])
+
+        const [doctorPayload, appointmentsPayload] = await Promise.all([
+          doctorRes.json().catch(() => ({})),
+          appointmentsRes.json().catch(() => ({})),
+        ])
+
+        if (!doctorRes.ok || !Array.isArray(doctorPayload.doctors)) {
+          throw new Error("Failed to load doctors")
+        }
+        if (!appointmentsRes.ok || !Array.isArray(appointmentsPayload.appointments)) {
+          throw new Error("Failed to load appointments")
+        }
+
+        if (cancelled) return
+
+        const today = new Date().toISOString().split("T")[0]
+        const counts = new Map<number, number>()
+
+        for (const appointment of appointmentsPayload.appointments as StaffAppointmentResponse[]) {
+          const doctorId = appointment.doctor_id
+          if (!doctorId) continue
+          const status = normalizeStatus(appointment.status)
+          const startDate = appointment.start_at ? appointment.start_at.split("T")[0] : null
+        if (startDate === today && (status === "scheduled" || status === "checked_in")) {
+            counts.set(doctorId, (counts.get(doctorId) ?? 0) + 1)
+          }
+        }
+
+        const mapped = (doctorPayload.doctors as StaffDoctorResponse[]).map((doctor) => ({
+          id: `doctor-${doctor.doctor_id}`,
+          doctorId: doctor.doctor_id,
+          name: doctor.name,
+          specialty: doctor.specialty ?? "General",
+          email: doctor.email ?? "N/A",
+          phone: doctor.phone ?? "N/A",
+          todaysAppointments: counts.get(doctor.doctor_id) ?? 0,
+        }))
+
+        setProviders(mapped)
+      } catch (err) {
+        console.error(err)
+        if (!cancelled) {
+          setProviders([])
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false)
+        }
+      }
+    }
+
+    fetchData()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const filteredProviders = useMemo(
+    () =>
+      providers.filter(
+        (provider) =>
+          provider.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          provider.specialty.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          provider.email.toLowerCase().includes(searchQuery.toLowerCase()),
+      ),
+    [providers, searchQuery],
   )
 
   return (
@@ -42,7 +146,9 @@ export default function StaffDoctorsPage() {
       </div>
 
       {/* Results */}
-      {searchQuery && filteredProviders.length === 0 ? (
+      {isLoading ? (
+        <div className="bg-card rounded-xl border p-8 text-center text-muted-foreground">Loading providers…</div>
+      ) : searchQuery && filteredProviders.length === 0 ? (
         <EmptyState
           icon={Search}
           title="No doctors found"
@@ -61,14 +167,8 @@ export default function StaffDoctorsPage() {
   )
 }
 
-function ProviderRow({ provider }: { provider: Provider }) {
-  // Get today's appointments for this provider
-  const today = new Date().toISOString().split("T")[0]
-  const todayAppointments = mockAppointments.filter((apt) => apt.providerId === provider.id && apt.date === today)
-
-  const upcomingCount = todayAppointments.filter(
-    (apt) => apt.status === "scheduled" || apt.status === "checked-in",
-  ).length
+function ProviderRow({ provider }: { provider: StaffDoctor }) {
+  const upcomingCount = provider.todaysAppointments
 
   return (
     <div className="p-4 hover:bg-muted/50 transition-colors">
@@ -124,4 +224,25 @@ function ProviderRow({ provider }: { provider: Provider }) {
       </div>
     </div>
   )
+}
+
+function normalizeStatus(status: string | null | undefined): AppointmentStatus {
+  const value = (status ?? "scheduled").toLowerCase()
+  switch (value) {
+    case "completed":
+      return "completed"
+    case "checked-in":
+    case "checked_in":
+    case "in-room":
+    case "in_room":
+      return "checked_in"
+    case "cancelled":
+    case "canceled":
+      return "canceled"
+    case "no_show":
+      return "no_show"
+    case "scheduled":
+    default:
+      return "scheduled"
+  }
 }

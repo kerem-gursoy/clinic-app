@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { EmptyState } from "@/components/empty-state"
@@ -17,33 +17,87 @@ import {
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Search, User, Phone, Mail, Calendar, Plus } from "lucide-react"
-import { mockPatients } from "@/lib/mock-data"
-import type { Patient } from "@/lib/types"
+
+interface StaffPatientResponse {
+  patient_id: number
+  name: string
+  email: string | null
+  phone: string | null
+  dob: string | null
+}
+
+interface StaffPatient {
+  id: string
+  patientId: number
+  name: string
+  email: string
+  phone: string
+  dob: string | null
+}
 
 export default function StaffPatientsPage() {
   const [searchQuery, setSearchQuery] = useState("")
-  const [patients, setPatients] = useState<Patient[]>(mockPatients)
+  const [patients, setPatients] = useState<StaffPatient[]>([])
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
 
-  const filteredPatients = patients.filter(
-    (patient) =>
-      patient.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      patient.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      patient.phone.includes(searchQuery),
+  useEffect(() => {
+    let cancelled = false
+
+    const fetchPatients = async () => {
+      try {
+        const token = typeof window !== "undefined" ? window.localStorage.getItem("authToken") : null
+        const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3000/api"
+        const res = await fetch(`${baseUrl}/staff/patients`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+          credentials: "include",
+        })
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok || !Array.isArray(data.patients)) {
+          throw new Error("Failed to load patients")
+        }
+        if (cancelled) return
+        setPatients(data.patients.map(mapPatient))
+      } catch (err) {
+        console.error(err)
+        if (!cancelled) {
+          setPatients([])
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false)
+        }
+      }
+    }
+
+    fetchPatients()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const filteredPatients = useMemo(
+    () =>
+      patients.filter(
+        (patient) =>
+          patient.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          patient.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          patient.phone.includes(searchQuery),
+      ),
+    [patients, searchQuery],
   )
 
   const handleAddPatient = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     const formData = new FormData(e.currentTarget)
 
-    const newPatient: Patient = {
-      id: `p${patients.length + 1}`,
-      name: formData.get("name") as string,
-      email: formData.get("email") as string,
-      phone: formData.get("phone") as string,
-      dateOfBirth: formData.get("dateOfBirth") as string,
-      insuranceProvider: formData.get("insuranceProvider") as string,
-      insuranceId: formData.get("insuranceId") as string,
+    const newPatient: StaffPatient = {
+      id: `local-${Date.now()}`,
+      patientId: Math.max(0, patients.length ? Math.max(...patients.map((p) => p.patientId)) + 1 : 1),
+      name: (formData.get("name") as string) ?? "",
+      email: (formData.get("email") as string) ?? "",
+      phone: (formData.get("phone") as string) ?? "",
+      dob: (formData.get("dateOfBirth") as string) ?? null,
     }
 
     setPatients((prev) => [...prev, newPatient])
@@ -123,7 +177,9 @@ export default function StaffPatientsPage() {
       </div>
 
       {/* Results */}
-      {searchQuery && filteredPatients.length === 0 ? (
+      {isLoading ? (
+        <div className="bg-card rounded-xl border p-8 text-center text-muted-foreground">Loading patient list…</div>
+      ) : searchQuery && filteredPatients.length === 0 ? (
         <EmptyState
           icon={Search}
           title="No patients found"
@@ -150,8 +206,11 @@ export default function StaffPatientsPage() {
   )
 }
 
-function PatientRow({ patient }: { patient: Patient }) {
-  const age = new Date().getFullYear() - new Date(patient.dateOfBirth).getFullYear()
+function PatientRow({ patient }: { patient: StaffPatient }) {
+  const age =
+    patient.dob && !Number.isNaN(new Date(patient.dob).getTime())
+      ? new Date().getFullYear() - new Date(patient.dob).getFullYear()
+      : null
 
   return (
     <div className="p-4 hover:bg-muted/50 transition-colors">
@@ -170,7 +229,8 @@ function PatientRow({ patient }: { patient: Patient }) {
               <div className="flex items-center gap-1.5">
                 <Calendar className="h-3.5 w-3.5" />
                 <span>
-                  {age} years old • DOB: {new Date(patient.dateOfBirth).toLocaleDateString("en-US")}
+                  {age !== null ? `${age} years old • ` : ""}
+                  DOB: {patient.dob ? new Date(patient.dob).toLocaleDateString("en-US") : "Unknown"}
                 </span>
               </div>
               <div className="flex items-center gap-1.5">
@@ -183,14 +243,7 @@ function PatientRow({ patient }: { patient: Patient }) {
               </div>
             </div>
 
-            {patient.insuranceProvider && (
-              <div className="mt-2 text-sm">
-                <span className="text-muted-foreground">Insurance: </span>
-                <span className="font-medium">
-                  {patient.insuranceProvider} ({patient.insuranceId})
-                </span>
-              </div>
-            )}
+            {/* Insurance details not yet available from API */}
           </div>
         </div>
 
@@ -207,4 +260,15 @@ function PatientRow({ patient }: { patient: Patient }) {
       </div>
     </div>
   )
+}
+
+function mapPatient(patient: StaffPatientResponse): StaffPatient {
+  return {
+    id: `patient-${patient.patient_id}`,
+    patientId: patient.patient_id,
+    name: patient.name,
+    email: patient.email ?? "N/A",
+    phone: patient.phone ?? "N/A",
+    dob: patient.dob ?? null,
+  }
 }
