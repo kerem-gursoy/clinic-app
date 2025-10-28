@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { EmptyState } from "@/components/empty-state"
 import { Search, User, Phone, Mail, Calendar, Plus } from "lucide-react"
+import { apiPath } from "@/app/lib/api"
 
 interface DoctorPatientResponse {
   patient_id: number
@@ -34,8 +35,7 @@ export default function DoctorPatientsPage() {
     const fetchPatients = async () => {
       try {
         const token = typeof window !== "undefined" ? window.localStorage.getItem("authToken") : null
-        const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3000/api"
-        const res = await fetch(`${baseUrl}/doctor/patients`, {
+        const res = await fetch(apiPath("/doctor/patients"), {
           headers: token ? { Authorization: `Bearer ${token}` } : undefined,
           credentials: "include",
         })

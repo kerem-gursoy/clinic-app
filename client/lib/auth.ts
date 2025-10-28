@@ -1,7 +1,5 @@
 import type { UserRole } from "./types";
-
-const DEFAULT_API_BASE_URL =
-  process.env.NODE_ENV === "production" ? undefined : "http://localhost:3000/api";
+import { apiPath } from "@/app/lib/api";
 type ApiUserRole = "PATIENT" | "DOCTOR" | "STAFF";
 
 interface ApiAuthUser {
@@ -19,16 +17,6 @@ export interface AuthUser {
 interface LoginSuccessPayload {
   token: string;
   user: ApiAuthUser;
-}
-
-function getApiBaseUrl() {
-  const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? DEFAULT_API_BASE_URL;
-
-  if (!apiBaseUrl) {
-    throw new Error("NEXT_PUBLIC_API_BASE_URL is not configured.");
-  }
-
-  return apiBaseUrl;
 }
 
 function getStoredToken() {
@@ -85,7 +73,7 @@ export async function fetchCurrentUser(): Promise<AuthUser | null> {
     return null;
   }
 
-  const response = await fetch(`${getApiBaseUrl()}/me`, {
+  const response = await fetch(apiPath("/me"), {
     method: "GET",
     headers: { Authorization: `Bearer ${token}` },
     credentials: "include",
@@ -116,7 +104,7 @@ export async function fetchCurrentUser(): Promise<AuthUser | null> {
 }
 
 export async function login(email: string, password: string) {
-  const response = await fetch(`${getApiBaseUrl()}/auth/login`, {
+  const response = await fetch(apiPath("/auth/login"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password }),
@@ -148,7 +136,7 @@ export async function logout() {
     headers.Authorization = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${getApiBaseUrl()}/auth/logout`, {
+  const response = await fetch(apiPath("/auth/logout"), {
     method: "POST",
     credentials: "include",
     headers,

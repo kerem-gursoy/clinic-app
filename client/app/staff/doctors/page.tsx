@@ -7,6 +7,7 @@ import { EmptyState } from "@/components/empty-state"
 import { Badge } from "@/components/ui/badge"
 import { Search, Phone, Mail, Stethoscope, Calendar } from "lucide-react"
 import type { AppointmentStatus } from "@/lib/types"
+import { apiPath } from "@/app/lib/api"
 
 interface StaffDoctorResponse {
   doctor_id: number
@@ -44,14 +45,12 @@ export default function StaffDoctorsPage() {
     const fetchData = async () => {
       try {
         const token = typeof window !== "undefined" ? window.localStorage.getItem("authToken") : null
-        const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3000/api"
-
         const [doctorRes, appointmentsRes] = await Promise.all([
-          fetch(`${baseUrl}/staff/doctors`, {
+          fetch(apiPath("/staff/doctors"), {
             headers: token ? { Authorization: `Bearer ${token}` } : undefined,
             credentials: "include",
           }),
-          fetch(`${baseUrl}/staff/appointments?limit=500`, {
+          fetch(`${apiPath("/staff/appointments")}?limit=500`, {
             headers: token ? { Authorization: `Bearer ${token}` } : undefined,
             credentials: "include",
           }),

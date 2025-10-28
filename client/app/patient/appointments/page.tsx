@@ -6,6 +6,7 @@ import { StatusChip } from "@/components/status-chip";
 import { EmptyState } from "@/components/empty-state";
 import { Calendar, Clock, User, Filter } from "lucide-react";
 import type { AppointmentStatus } from "@/lib/types";
+import { apiPath } from "@/app/lib/api";
 
 interface PatientAppointmentResponse {
   appointment_id: number;
@@ -44,8 +45,7 @@ export default function PatientAppointmentsPage() {
     const fetchAppointments = async () => {
       try {
         const token = typeof window !== "undefined" ? localStorage.getItem("authToken") : null;
-        const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3000/api";
-        const res = await fetch(`${baseUrl}/patient/appointments`, {
+        const res = await fetch(apiPath("/patient/appointments"), {
           headers: token ? { Authorization: `Bearer ${token}` } : undefined,
           credentials: "include",
         });
