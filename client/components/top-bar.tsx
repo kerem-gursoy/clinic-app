@@ -28,7 +28,7 @@ const roleConfig = {
   doctor: {
     label: "Doctor",
     tabs: [
-      { label: "Calendar", href: "/doctor/appointments" },
+      { label: "Appointments", href: "/doctor/appointments" },
       { label: "Patients", href: "/doctor/patients" },
       { label: "Other", href: "/doctor/other" },
     ],
@@ -96,11 +96,6 @@ export function TopBar({ role, onNewAppointment, onLogout }: TopBarProps) {
 
         {/* Actions */}
         <div className="flex items-center gap-2 ml-auto md:ml-0">
-          <Button size="sm" onClick={onNewAppointment} className="rounded-full">
-            <Plus className="h-4 w-4 mr-1" />
-            <span className="hidden sm:inline">New</span>
-          </Button>
-
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="rounded-full">
