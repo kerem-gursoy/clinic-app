@@ -21,5 +21,4 @@ pnpm-debug.log*
 client/next-env.d.ts
 
 .DS_Store
-CLAUDE.md
-schema.sql
+
