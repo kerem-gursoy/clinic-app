@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Search, User, Phone, Mail, Calendar, Plus } from "lucide-react"
+import { apiPath } from "@/app/lib/api"
 
 <<<<<<< HEAD
 interface StaffPatientResponse {
@@ -50,8 +51,7 @@ export default function StaffPatientsPage() {
     const fetchPatients = async () => {
       try {
         const token = typeof window !== "undefined" ? window.localStorage.getItem("authToken") : null
-        const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3000/api"
-        const res = await fetch(`${baseUrl}/staff/patients`, {
+        const res = await fetch(apiPath("/staff/patients"), {
           headers: token ? { Authorization: `Bearer ${token}` } : undefined,
           credentials: "include",
         })

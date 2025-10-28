@@ -8,6 +8,7 @@ import { EmptyState } from "@/components/empty-state"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Calendar, User, ChevronLeft, ChevronRight, MoreVertical } from "lucide-react"
 import type { AppointmentStatus } from "@/lib/types"
+import { apiPath } from "@/app/lib/api"
 
 interface StaffAppointmentResponse {
   appointment_id: number
@@ -79,14 +80,27 @@ export default function StaffAppointmentsPage() {
     }
   }, [])
 
-  useEffect(() => {
-    const onVisibility = async () => {
-      if (document.visibilityState === "visible") {
-        const flag = localStorage.getItem("appointments_refresh")
-        if (flag) {
-          setIsLoading(true)
-          await fetchAppointments()
-          localStorage.removeItem("appointments_refresh")
+    const fetchAppointments = async () => {
+      try {
+        const token = typeof window !== "undefined" ? window.localStorage.getItem("authToken") : null
+        const res = await fetch(apiPath("/staff/appointments"), {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+          credentials: "include",
+        })
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok || !Array.isArray(data.appointments)) {
+          throw new Error("Failed to load appointments")
+        }
+        if (cancelled) return
+        setAppointments(data.appointments.map(mapStaffAppointment))
+      } catch (err) {
+        console.error(err)
+        if (!cancelled) {
+          setAppointments([])
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false)
         }
       }
     }
