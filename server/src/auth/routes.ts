@@ -491,6 +491,39 @@ router.get("/staff/doctors", requireAuth, requireRole("STAFF"), async (_req: Req
   }
 });
 
+// Search patients by name or email (staff and doctors)
+router.get(
+  "/patients/search",
+  requireAuth,
+  requireRole("STAFF", "DOCTOR"),
+  async (req: RequestWithUser, res: Response) => {
+    try {
+      const q = String(req.query.q ?? "").trim();
+      if (!q) return res.json({ patients: [] });
+
+      const like = `%${q.replace(/%/g, "\\%").replace(/_/g, "\\_")}%`;
+      const limit = Math.min(Math.max(parseInt(String(req.query.limit ?? "25"), 10) || 25, 1), 200);
+
+      const [rows] = await pool.query<RowDataPacket[]>(
+        `SELECT patient_id, patient_fname, patient_lname, patient_email FROM patient WHERE CONCAT(patient_fname, ' ', patient_lname) LIKE ? OR patient_email LIKE ? LIMIT ?`,
+        [like, like, limit]
+      );
+
+      const patients = (rows as any[]).map((r) => ({
+        patient_id: r.patient_id,
+        patient_fname: r.patient_fname,
+        patient_lname: r.patient_lname,
+        patient_email: r.patient_email,
+      }));
+
+      return res.json({ patients });
+    } catch (err: any) {
+      console.error("patients/search error:", err);
+      return res.status(500).json({ error: err?.message || "Server error" });
+    }
+  },
+);
+
 router.get("/doctor/patients", requireAuth, requireRole("DOCTOR"), async (req: RequestWithUser, res: Response) => {
   const doctorId = req.user?.user_id;
   if (!doctorId) {

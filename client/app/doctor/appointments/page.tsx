@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { StatusChip } from "@/components/status-chip"
@@ -62,39 +62,69 @@ export default function DoctorAppointmentsPage() {
   const [statusFilter, setStatusFilter] = useState<AppointmentStatus | "all">("all")
   const router = useRouter()
 
+  const cancelledRef = useRef(false)
+
+  async function fetchAppointments() {
+    try {
+      const token = typeof window !== "undefined" ? window.localStorage.getItem("authToken") : null
+      const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3000/api"
+      const res = await fetch(`${baseUrl}/doctor/appointments`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        credentials: "include",
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok || !Array.isArray(data.appointments)) {
+        throw new Error("Failed to load appointments")
+      }
+
+      if (cancelledRef.current) return
+      setAppointments(data.appointments.map(mapAppointment))
+    } catch (err) {
+      console.error(err)
+      if (!cancelledRef.current) {
+        setAppointments([])
+      }
+    } finally {
+      if (!cancelledRef.current) {
+        setIsLoading(false)
+      }
+    }
+  }
+
   useEffect(() => {
-    let cancelled = false
+    cancelledRef.current = false
+    fetchAppointments()
+    return () => {
+      cancelledRef.current = true
+    }
+  }, [])
 
-    const fetchAppointments = async () => {
-      try {
-        const token = typeof window !== "undefined" ? window.localStorage.getItem("authToken") : null
-        const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3000/api"
-        const res = await fetch(`${baseUrl}/doctor/appointments`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-          credentials: "include",
-        })
-        const data = await res.json().catch(() => ({}))
-        if (!res.ok || !Array.isArray(data.appointments)) {
-          throw new Error("Failed to load appointments")
-        }
-
-        if (cancelled) return
-        setAppointments(data.appointments.map(mapAppointment))
-      } catch (err) {
-        console.error(err)
-        if (!cancelled) {
-          setAppointments([])
-        }
-      } finally {
-        if (!cancelled) {
-          setIsLoading(false)
+  useEffect(() => {
+    // refetch when returning to page or when another tab signals refresh
+    const onVisibility = async () => {
+      if (document.visibilityState === "visible") {
+        const flag = localStorage.getItem("appointments_refresh")
+        if (flag) {
+          setIsLoading(true)
+          await fetchAppointments()
+          localStorage.removeItem("appointments_refresh")
         }
       }
     }
 
-    fetchAppointments()
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === "appointments_refresh") {
+        setIsLoading(true)
+        fetchAppointments()
+        localStorage.removeItem("appointments_refresh")
+      }
+    }
+
+    document.addEventListener("visibilitychange", onVisibility)
+    window.addEventListener("storage", onStorage)
     return () => {
-      cancelled = true
+      document.removeEventListener("visibilitychange", onVisibility)
+      window.removeEventListener("storage", onStorage)
     }
   }, [])
 
