@@ -18,12 +18,22 @@ export default function PatientLayout({
   const { isChecking } = useRoleGuard("patient")
   const [userName, setUserName] = useState<string>("Guest")
 
+<<<<<<< HEAD
   useEffect(() => {
     const user = getStoredAuthUser()
     if (user?.first_name) {
       setUserName(user.first_name)
     }
   }, [])
+=======
+  const handleRoleChange = (role: "patient" | "doctor" | "staff") => {
+    if (role === "staff") {
+      router.push("/staff/appointments")
+      return
+    }
+    router.push(`/${role}/appointments`)
+  }
+>>>>>>> 8864bb37d3b7286bd5cca5e0e4c70d99b2248d30
 
   const handleNewAppointment = () => {
     // TODO: Open create appointment sheet

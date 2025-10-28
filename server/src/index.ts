@@ -10,6 +10,7 @@ import authRouter from "./auth/routes.js";
 import patientRouter from "./patient/routes.js";
 
 const app = express();
+<<<<<<< HEAD
 const allowedOrigins = (process.env.ALLOWED_ORIGINS ?? "http://localhost:3000,http://localhost:3001,http://localhost:5173")
   .split(",")
   .map((origin) => origin.trim())
@@ -27,6 +28,9 @@ app.use(
     credentials: true,
   })
 );
+=======
+app.use(cors({ origin: ["http://localhost:3000", "http://localhost:3001"], credentials: true }));
+>>>>>>> 8864bb37d3b7286bd5cca5e0e4c70d99b2248d30
 app.use(express.json());
 
 app.get("/api/health", (_req, res) => res.json({ ok: true }));

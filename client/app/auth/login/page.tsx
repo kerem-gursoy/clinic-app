@@ -5,7 +5,11 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+<<<<<<< HEAD
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+=======
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+>>>>>>> 8864bb37d3b7286bd5cca5e0e4c70d99b2248d30
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Calendar, AlertCircle } from "lucide-react"
 import { login } from "@/lib/auth"
@@ -22,6 +26,8 @@ function getDashboardPath(role: UserRole) {
             return "/patient/appointments"
     }
 }
+
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3000"
 
 export default function LoginPage() {
     const router = useRouter()
@@ -46,6 +52,62 @@ export default function LoginPage() {
             setIsLoading(false)
         }
     }
+<<<<<<< HEAD
+=======
+  } catch (err: any) {
+    setError(err.message);
+  } finally {
+    setIsLoading(false);
+  }
+};
+
+        if (!email || !password) {
+            setError("Please enter both email and password")
+            setIsLoading(false)
+            return
+        }
+
+        try {
+            const res = await fetch(`${API_BASE}/api/auth/login`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ email, password }),
+            })
+
+            const data = await res.json()
+
+            if (!res.ok) {
+                setError(data?.error ?? "Unable to sign in. Please try again.")
+                setIsLoading(false)
+                return
+            }
+
+            const { token, user } = data ?? {}
+            if (token) {
+                localStorage.setItem("authToken", token)
+            }
+            if (user) {
+                localStorage.setItem("authUser", JSON.stringify(user))
+            }
+
+            const role = user?.role?.toLowerCase()
+            if (role === "doctor") {
+                router.push("/doctor/appointments")
+            } else if (role === "staff") {
+                router.push("/staff/appointments")
+            } else {
+                router.push("/patient/appointments")
+            }
+        } catch (err) {
+            console.error("Login failed", err)
+            setError("Unexpected error. Please try again.")
+        } finally {
+            setIsLoading(false)
+        }
+    }
+>>>>>>> 8864bb37d3b7286bd5cca5e0e4c70d99b2248d30
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-background px-4 py-8">

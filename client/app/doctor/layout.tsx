@@ -17,16 +17,27 @@ export default function DoctorLayout({
   const { isChecking } = useRoleGuard("doctor")
   const [userName, setUserName] = useState<string>("Guest")
 
+<<<<<<< HEAD
   useEffect(() => {
     const user = getStoredAuthUser()
     if (user?.first_name) {
       setUserName(user.first_name)
     }
   }, [])
+=======
+  const handleRoleChange = (role: "patient" | "doctor" | "staff") => {
+    if (role === "staff") {
+      router.push("/staff/appointments")
+      return
+    }
+    router.push(`/${role}/appointments`)
+  }
+>>>>>>> 8864bb37d3b7286bd5cca5e0e4c70d99b2248d30
 
   const handleNewAppointment = () => {
     // to-do Open create appointment sheet
     console.log("New appointment clicked")
+<<<<<<< HEAD
   }
 
   const handleLogout = async () => {
@@ -45,6 +56,8 @@ export default function DoctorLayout({
         <p className="text-muted-foreground">Checking access…</p>
       </div>
     )
+=======
+>>>>>>> 8864bb37d3b7286bd5cca5e0e4c70d99b2248d30
   }
 
   return (
