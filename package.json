@@ -11,7 +11,10 @@
     "dev:server": "npm --workspace server run dev",
     "build": "npm-run-all build:*",
     "build:client": "npm --workspace client run build",
-    "build:server": "npm --workspace server run build"
+    "build:server": "npm --workspace server run build",
+    "start": "npm-run-all -p start:*",
+    "start:client": "npm --workspace client run start",
+    "start:server": "npm --workspace server run start"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",
