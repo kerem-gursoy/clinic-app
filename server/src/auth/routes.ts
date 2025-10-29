@@ -46,12 +46,11 @@ type AppointmentRow = RowDataPacket & {
   reason?: string | null;
   status?: string | null;
   start_at?: string | null;
-  start_time?: string | null;
+  end_at?: string | null;
   time?: string | null;
   duration?: number | null;
   length_minutes?: number | null;
   notes?: string | null;
-  end_at?: string | null;
   patient_fname?: string | null;
   patient_lname?: string | null;
 };
@@ -225,7 +224,7 @@ async function fetchStaffPatients(limit = 200): Promise<StaffPatient[]> {
 async function fetchStaffDoctors(limit = 200): Promise<StaffDoctorInfo[]> {
   const normalizedLimit = Math.min(Math.max(limit, 1), 500);
   const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT doctor_id, doc_fname, doc_lname, email, phone, specialization
+    `SELECT doctor_id, doc_fname, doc_lname, email, phone
      FROM doctor
      ORDER BY doc_fname ASC
      LIMIT ?`,
@@ -235,7 +234,7 @@ async function fetchStaffDoctors(limit = 200): Promise<StaffDoctorInfo[]> {
   return rows.map((row) => ({
     doctor_id: Number(row.doctor_id),
     name: [row.doc_fname, row.doc_lname].filter(Boolean).join(" ").trim(),
-    specialty: row.specialization ?? null,
+    specialty: null, // No specialty column in current database schema
     email: row.email ?? null,
     phone: row.phone ?? null,
   }));
@@ -586,6 +585,179 @@ router.get("/me", requireAuth, async (req: RequestWithUser, res: Response) => {
     return res.status(500).json({ error: "Server error" });
   }
 });
+
+// Medical Records Query Endpoint
+router.get("/doctor/medical-records/query", requireAuth, requireRole("DOCTOR"), async (req: RequestWithUser, res: Response) => {
+  const doctorId = req.user?.user_id;
+  if (!doctorId) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  try {
+    const {
+      patientName,
+      diagnosis,
+      dateFrom,
+      dateTo,
+      symptoms = [],
+      medications = []
+    } = req.query;
+
+    // Build base query for medical records from appointments and patient data
+    let sqlQuery = `
+      SELECT 
+        a.appointment_id as id,
+        a.patient_id,
+        CONCAT(p.patient_fname, ' ', p.patient_lname) as patient_name,
+        a.appointment_id,
+        DATE(a.start_at) as appointment_date,
+        a.reason as diagnosis,
+        a.notes,
+        a.doctor_id,
+        CONCAT(d.doc_fname, ' ', d.doc_lname) as doctor_name,
+        a.start_at
+      FROM appointment a
+      LEFT JOIN patient p ON a.patient_id = p.patient_id
+      LEFT JOIN doctor d ON a.doctor_id = d.doctor_id
+      WHERE a.doctor_id = ? AND a.status = 'completed'
+    `;
+
+    const queryParams: any[] = [doctorId];
+
+    // Add filters based on query parameters
+    if (patientName) {
+      sqlQuery += ` AND CONCAT(p.patient_fname, ' ', p.patient_lname) LIKE ?`;
+      queryParams.push(`%${patientName}%`);
+    }
+
+    if (diagnosis) {
+      sqlQuery += ` AND a.reason LIKE ?`;
+      queryParams.push(`%${diagnosis}%`);
+    }
+
+    if (dateFrom) {
+      sqlQuery += ` AND DATE(a.start_at) >= ?`;
+      queryParams.push(dateFrom);
+    }
+
+    if (dateTo) {
+      sqlQuery += ` AND DATE(a.start_at) <= ?`;
+      queryParams.push(dateTo);
+    }
+
+    sqlQuery += ` ORDER BY a.start_at DESC LIMIT 100`;
+
+    const [records] = await pool.query<RowDataPacket[]>(sqlQuery, queryParams);
+
+    // Transform the data and add mock medical details for demonstration
+    const medicalRecords = records.map((record: any) => {
+      // Generate mock symptoms and medications based on diagnosis
+      const mockData = generateMockMedicalData(record.diagnosis || "General consultation");
+      
+      return {
+        id: `mr-${record.id}`,
+        patientId: record.patient_id?.toString() || "",
+        patientName: record.patient_name || "Unknown Patient",
+        appointmentId: record.appointment_id?.toString() || "",
+        date: record.appointment_date || record.start_at,
+        diagnosis: record.diagnosis || "General consultation",
+        symptoms: mockData.symptoms,
+        treatment: mockData.treatment,
+        medications: mockData.medications,
+        notes: record.notes || "No additional notes",
+        doctorId: record.doctor_id?.toString() || "",
+        doctorName: record.doctor_name || "Unknown Doctor"
+      };
+    });
+
+    // Generate summary statistics
+    const diagnoses = medicalRecords.map(r => r.diagnosis);
+    const allSymptoms = medicalRecords.flatMap(r => r.symptoms);
+    const allMedications = medicalRecords.flatMap(r => r.medications.map((m: any) => m.name));
+    const dates = medicalRecords.map(r => new Date(r.date)).filter(d => !isNaN(d.getTime()));
+
+    const summary = {
+      mostCommonDiagnosis: getTopItems(diagnoses, 5),
+      mostCommonSymptoms: getTopItems(allSymptoms, 5),
+      mostPrescribedMedications: getTopItems(allMedications, 5),
+      dateRange: {
+        earliest: dates.length > 0 ? new Date(Math.min(...dates.map(d => d.getTime()))).toISOString().split('T')[0] : null,
+        latest: dates.length > 0 ? new Date(Math.max(...dates.map(d => d.getTime()))).toISOString().split('T')[0] : null
+      }
+    };
+
+    const report = {
+      query: req.query,
+      totalRecords: medicalRecords.length,
+      records: medicalRecords,
+      summary
+    };
+
+    return res.json(report);
+  } catch (err: any) {
+    console.error("Medical records query error:", err);
+    return res.status(500).json({ error: err?.message || "Failed to query medical records" });
+  }
+});
+
+function generateMockMedicalData(diagnosis: string) {
+  const mockData: { [key: string]: any } = {
+    "hypertension": {
+      symptoms: ["headache", "dizziness", "fatigue", "chest pain"],
+      treatment: "Lifestyle modification, dietary changes, and antihypertensive medication",
+      medications: [
+        { name: "Lisinopril", dosage: "10mg", frequency: "Daily", duration: "30 days" },
+        { name: "Hydrochlorothiazide", dosage: "25mg", frequency: "Daily", duration: "30 days" }
+      ]
+    },
+    "diabetes": {
+      symptoms: ["increased thirst", "frequent urination", "blurred vision", "fatigue"],
+      treatment: "Dietary counseling, exercise plan, and glucose management",
+      medications: [
+        { name: "Metformin", dosage: "500mg", frequency: "Twice daily", duration: "90 days" }
+      ]
+    },
+    "bronchitis": {
+      symptoms: ["cough", "fever", "chest congestion", "shortness of breath"],
+      treatment: "Rest, fluids, and symptomatic treatment",
+      medications: [
+        { name: "Azithromycin", dosage: "250mg", frequency: "Daily", duration: "5 days" },
+        { name: "Albuterol inhaler", dosage: "2 puffs", frequency: "As needed", duration: "30 days" }
+      ]
+    }
+  };
+
+  // Find matching condition or return default
+  const key = Object.keys(mockData).find(k => 
+    diagnosis.toLowerCase().includes(k.toLowerCase())
+  );
+
+  if (key) {
+    return mockData[key];
+  }
+
+  // Default mock data
+  return {
+    symptoms: ["general discomfort", "fatigue"],
+    treatment: "Symptomatic treatment and follow-up as needed",
+    medications: [
+      { name: "Acetaminophen", dosage: "500mg", frequency: "As needed", duration: "7 days" }
+    ]
+  };
+}
+
+function getTopItems(items: string[], limit: number): string[] {
+  const counts: { [key: string]: number } = {};
+  items.forEach(item => {
+    const normalized = item.toLowerCase().trim();
+    counts[normalized] = (counts[normalized] || 0) + 1;
+  });
+
+  return Object.entries(counts)
+    .sort(([,a], [,b]) => b - a)
+    .slice(0, limit)
+    .map(([item]) => item);
+}
 
 export default router;
 

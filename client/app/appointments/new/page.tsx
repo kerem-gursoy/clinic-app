@@ -5,10 +5,14 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Label } from "@/components/ui/label"
 import { getStoredAuthUser } from "@/lib/auth"
+import type { UserRole } from "@/lib/types"
 
 export default function NewAppointmentPage() {
   const router = useRouter()
+  const [currentUser, setCurrentUser] = useState<any>(null)
   const [patientId, setPatientId] = useState<string>("")
   const [patientQuery, setPatientQuery] = useState<string>("")
   const [patientResults, setPatientResults] = useState<Array<any>>([])
@@ -20,15 +24,23 @@ export default function NewAppointmentPage() {
   const [reason, setReason] = useState<string>("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [doctors, setDoctors] = useState<Array<any>>([])
+  const [doctorsLoading, setDoctorsLoading] = useState(false)
+  const [doctorsError, setDoctorsError] = useState<string | null>(null)
   const [errors, setErrors] = useState<string | null>(null)
 
   useEffect(() => {
     const user = getStoredAuthUser()
     if (user) {
+      setCurrentUser(user)
       // default provider to current user if doctor
-      if (user.role === "doctor") setProviderId(String(user.user_id))
-      // if staff, try to load doctors list for provider picker
+      if (user.role === "doctor") {
+        setProviderId(String(user.user_id))
+      }
+      // if staff, set default to unassigned and try to load doctors list for provider picker
       if (user.role === "staff") {
+        setProviderId("unassigned")
+        setDoctorsLoading(true)
+        setDoctorsError(null)
         ;(async () => {
           try {
             const token = typeof window !== "undefined" ? window.localStorage.getItem("authToken") : null
@@ -40,9 +52,15 @@ export default function NewAppointmentPage() {
             const body = await res.json().catch(() => ({}))
             if (res.ok && Array.isArray(body.doctors)) {
               setDoctors(body.doctors)
+            } else {
+              console.error("Failed to load doctors. Status:", res.status, "Body:", body)
+              setDoctorsError(`Failed to load doctors: ${body.error || 'Unknown error'}`)
             }
           } catch (err) {
             console.error("Failed to load doctors", err)
+            setDoctorsError("Failed to load doctors: Network error")
+          } finally {
+            setDoctorsLoading(false)
           }
         })()
       }
@@ -88,7 +106,8 @@ export default function NewAppointmentPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setErrors(null)
-    // basic validation
+    
+    // Basic validation
     if (!patientId) {
       setErrors("Please select a patient")
       return
@@ -110,6 +129,17 @@ export default function NewAppointmentPage() {
       setErrors("Duration must be greater than 0")
       return
     }
+    
+    // For staff, warn if no doctor is selected
+    if (currentUser?.role === "staff" && (!providerId || providerId === "unassigned")) {
+      const confirmUnassigned = window.confirm(
+        "No doctor has been selected for this appointment. Are you sure you want to create an unassigned appointment?"
+      )
+      if (!confirmUnassigned) {
+        return
+      }
+    }
+    
     setIsSubmitting(true)
     try {
       const endDate = new Date(startDate)
@@ -117,7 +147,7 @@ export default function NewAppointmentPage() {
 
       const payload = {
         patientId: Number(patientId),
-        providerId: providerId ? Number(providerId) : null,
+        providerId: providerId && providerId !== "unassigned" ? Number(providerId) : null,
         start: startDate.toISOString(),
         end: endDate.toISOString(),
         reason,
@@ -160,10 +190,13 @@ export default function NewAppointmentPage() {
   return (
     <div className="container max-w-3xl mx-auto py-8 px-4">
       <h1 className="text-2xl font-semibold mb-4">Schedule New Appointment</h1>
-      <form onSubmit={handleSubmit} className="space-y-4 bg-card rounded-md border p-6">
-        <div>
-          <label className="block text-sm font-medium mb-1">Patient</label>
+      <form onSubmit={handleSubmit} className="space-y-6 bg-card rounded-md border p-6">
+        
+        {/* Patient Selection */}
+        <div className="space-y-2">
+          <Label htmlFor="patient">Patient</Label>
           <Input
+            id="patient"
             value={patientQuery}
             onChange={(e) => {
               setPatientQuery(e.target.value)
@@ -174,7 +207,7 @@ export default function NewAppointmentPage() {
           />
           {patientLoading && <div className="text-xs text-muted-foreground mt-1">Searching…</div>}
           {patientResults.length > 0 && (
-            <ul className="border rounded mt-2 bg-white max-h-48 overflow-auto">
+            <ul className="border rounded mt-2 bg-background max-h-48 overflow-auto">
               {patientResults.map((p) => (
                 <li
                   key={p.patient_id}
@@ -193,23 +226,59 @@ export default function NewAppointmentPage() {
           )}
         </div>
 
-        <div>
-          <label className="block text-sm font-medium mb-1">Provider</label>
-          {doctors.length > 0 ? (
-            <select className="w-full border rounded px-2 py-2" value={providerId} onChange={(e) => setProviderId(e.target.value)}>
-              <option value="">(Unassigned)</option>
-              {doctors.map((d: any) => (
-                <option key={d.doctor_id} value={d.doctor_id}>{d.doc_fname} {d.doc_lname} {d.specialty ? `— ${d.specialty}` : ""}</option>
-              ))}
-            </select>
-          ) : (
-            <Input value={providerId} onChange={(e) => setProviderId(e.target.value)} placeholder="Provider id (doctor)" />
-          )}
-        </div>
+        {/* Provider Selection - Only show for staff */}
+        {currentUser?.role === "staff" && (
+          <div className="space-y-2">
+            <Label htmlFor="provider">Doctor</Label>
+            {doctorsLoading ? (
+              <div className="text-sm text-muted-foreground p-2 border rounded">
+                Loading doctors...
+              </div>
+            ) : doctorsError ? (
+              <div className="text-sm text-destructive p-2 border rounded bg-destructive/10">
+                {doctorsError}
+              </div>
+            ) : doctors.length > 0 ? (
+              <Select value={providerId} onValueChange={setProviderId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a doctor" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="unassigned">(Unassigned)</SelectItem>
+                  {doctors.map((d: any) => (
+                    <SelectItem key={d.doctor_id} value={String(d.doctor_id)}>
+                      Dr. {d.name}
+                      {d.specialty && <span className="text-muted-foreground"> — {d.specialty}</span>}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <div className="text-sm text-muted-foreground p-2 border rounded">
+                No doctors found
+              </div>
+            )}
+          </div>
+        )}
 
-        <div>
-          <label className="block text-sm font-medium mb-1">Start</label>
+        {/* Doctor info for doctor users */}
+        {currentUser?.role === "doctor" && (
+          <div className="space-y-2">
+            <Label>Doctor</Label>
+            <div className="p-3 bg-muted/20 rounded border">
+              <div className="font-medium">Dr. {currentUser.first_name}</div>
+              <div className="text-sm text-muted-foreground">
+                You are scheduling this appointment for yourself
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Start Date/Time */}
+        <div className="space-y-2">
+          <Label htmlFor="start">Start Date & Time</Label>
           <input
+            id="start"
             type="datetime-local"
             className="w-full px-3 py-2 border rounded"
             value={start}
@@ -218,18 +287,37 @@ export default function NewAppointmentPage() {
           />
         </div>
 
-        <div>
-          <label className="block text-sm font-medium mb-1">Duration (minutes)</label>
-          <Input type="number" value={String(duration)} onChange={(e) => setDuration(Number(e.target.value))} />
+        {/* Duration */}
+        <div className="space-y-2">
+          <Label htmlFor="duration">Duration (minutes)</Label>
+          <Input 
+            id="duration"
+            type="number" 
+            value={String(duration)} 
+            onChange={(e) => setDuration(Number(e.target.value))}
+            min="15"
+            step="15"
+          />
         </div>
 
-        <div>
-          <label className="block text-sm font-medium mb-1">Reason</label>
-          <Input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Reason or visit notes" />
+        {/* Reason */}
+        <div className="space-y-2">
+          <Label htmlFor="reason">Reason</Label>
+          <Input 
+            id="reason"
+            value={reason} 
+            onChange={(e) => setReason(e.target.value)} 
+            placeholder="Reason for visit or appointment notes" 
+          />
         </div>
 
-        {errors && <div className="text-sm text-destructive">{errors}</div>}
-        <div className="flex items-center gap-2">
+        {errors && (
+          <div className="text-sm text-destructive bg-destructive/10 p-3 rounded border">
+            {errors}
+          </div>
+        )}
+        
+        <div className="flex items-center gap-2 pt-4">
           <Button type="submit" disabled={isSubmitting}>
             {isSubmitting ? "Creating…" : "Create Appointment"}
           </Button>
