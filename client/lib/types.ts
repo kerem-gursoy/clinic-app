@@ -46,3 +46,50 @@ export interface FileUpload {
   uploadedAt: string
   url: string
 }
+
+export interface MedicalRecord {
+  id: string
+  patientId: string
+  patientName: string
+  appointmentId: string
+  date: string
+  diagnosis: string
+  symptoms: string[]
+  treatment: string
+  medications: Medication[]
+  notes: string
+  doctorId: string
+  doctorName: string
+}
+
+export interface Medication {
+  name: string
+  dosage: string
+  frequency: string
+  duration: string
+}
+
+export interface MedicalRecordQuery {
+  patientName?: string
+  diagnosis?: string
+  dateFrom?: string
+  dateTo?: string
+  symptoms?: string[]
+  medications?: string[]
+  doctorId?: string
+}
+
+export interface MedicalRecordReport {
+  query: MedicalRecordQuery
+  totalRecords: number
+  records: MedicalRecord[]
+  summary: {
+    mostCommonDiagnosis: string[]
+    mostCommonSymptoms: string[]
+    mostPrescribedMedications: string[]
+    dateRange: {
+      earliest: string
+      latest: string
+    }
+  }
+}

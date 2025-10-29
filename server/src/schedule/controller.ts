@@ -40,8 +40,9 @@ export async function create(req: Request, res: Response, next: NextFunction) {
     });
 
     return res.status(201).json({ id });
-  } catch (err) {
-    next(err);
+  } catch (err: any) {
+    console.error("Appointment creation error:", err);
+    return res.status(500).json({ error: err?.message || "Failed to create appointment" });
   }
 }
 

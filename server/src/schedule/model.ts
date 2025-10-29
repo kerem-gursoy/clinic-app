@@ -1,25 +1,25 @@
 import { pool } from "./pool.js";
 
 export async function list({ date, providerId, patientId, status }: any) {
-  let sql = "SELECT * FROM appointments WHERE 1=1";
+  let sql = "SELECT * FROM appointment WHERE 1=1";
   const params: any[] = [];
-  if (date) { sql += " AND DATE(start_time)=?"; params.push(date); }
-  if (providerId) { sql += " AND provider_id=?"; params.push(providerId); }
+  if (date) { sql += " AND DATE(start_at)=?"; params.push(date); }
+  if (providerId) { sql += " AND doctor_id=?"; params.push(providerId); }
   if (patientId) { sql += " AND patient_id=?"; params.push(patientId); }
   if (status) { sql += " AND status=?"; params.push(status); }
-  sql += " ORDER BY start_time ASC";
+  sql += " ORDER BY start_at ASC";
   const [rows] = await pool.query(sql, params);
   return rows;
 }
 
 export async function getOne(id: number) {
-  const [rows] = await pool.query("SELECT * FROM appointments WHERE id=?", [id]);
+  const [rows] = await pool.query("SELECT * FROM appointment WHERE id=?", [id]);
   return (rows as any[])[0] || null;
 }
 
 export async function create(p: any) {
   const [r] = await pool.execute(
-    "INSERT INTO appointments (patient_id, provider_id, start_time, end_time, reason, status) VALUES (?, ?, ?, ?, ?, ?)",
+    "INSERT INTO appointment (patient_id, doctor_id, start_at, end_at, reason, status) VALUES (?, ?, ?, ?, ?, ?)",
     [p.patientId, p.providerId, p.start, p.end, p.reason ?? null, p.status ?? "scheduled"]
   );
   return (r as any).insertId as number;
@@ -27,14 +27,14 @@ export async function create(p: any) {
 
 export async function update(id: number, patch: any) {
   const [r] = await pool.execute(
-    "UPDATE appointments SET start_time=?, end_time=?, status=?, reason=? WHERE id=?",
+    "UPDATE appointment SET start_at=?, end_at=?, status=?, reason=? WHERE id=?",
     [patch.start, patch.end, patch.status, patch.reason, id]
   );
   return r;
 }
 
 export async function remove(id: number) {
-  await pool.execute("DELETE FROM appointments WHERE id=?", [id]);
+  await pool.execute("DELETE FROM appointment WHERE id=?", [id]);
 }
 
 export async function listForPatient(
@@ -47,19 +47,19 @@ export async function listForPatient(
       d.doc_fname AS doctor_first_name,
       d.doc_lname AS doctor_last_name,
       d.specialty AS doctor_specialty
-    FROM appointments a
-    LEFT JOIN doctor d ON d.doctor_id = a.provider_id
+    FROM appointment a
+    LEFT JOIN doctor d ON d.doctor_id = a.doctor_id
     WHERE a.patient_id = ?
   `;
   const params: any[] = [patientId];
 
   if (opts.startDate) {
-    sql += " AND a.start_time >= ?";
+    sql += " AND a.start_at >= ?";
     params.push(opts.startDate);
   }
 
   if (opts.endDate) {
-    sql += " AND a.start_time <= ?";
+    sql += " AND a.start_at <= ?";
     params.push(opts.endDate);
   }
 
@@ -68,7 +68,7 @@ export async function listForPatient(
     params.push(opts.status);
   }
 
-  sql += " ORDER BY a.start_time ASC";
+  sql += " ORDER BY a.start_at ASC";
   const [rows] = await pool.query(sql, params);
   return rows;
 }
@@ -82,21 +82,21 @@ export async function listForDoctor(
       a.*,
       p.patient_fname AS patient_first_name,
       p.patient_lname AS patient_last_name
-    FROM appointments a
+    FROM appointment a
     LEFT JOIN patient p ON p.patient_id = a.patient_id
-    WHERE a.provider_id = ?`;
+    WHERE a.doctor_id = ?`;
   const params: any[] = [doctorId];
 
   if (!opts.includePast) {
-    sql += " AND a.start_time >= NOW()";
+    sql += " AND a.start_at >= NOW()";
   }
 
   if (opts.date) {
-    sql += " AND DATE(a.start_time) = ?";
+    sql += " AND DATE(a.start_at) = ?";
     params.push(opts.date);
   }
 
-  sql += " ORDER BY a.start_time ASC";
+  sql += " ORDER BY a.start_at ASC";
   const [rows] = await pool.query(sql, params);
   return rows;
 }
@@ -111,20 +111,20 @@ export async function listAllForStaff(
       p.patient_lname AS patient_last_name,
       d.doc_fname AS doctor_first_name,
       d.doc_lname AS doctor_last_name
-    FROM appointments a
+    FROM appointment a
     LEFT JOIN patient p ON p.patient_id = a.patient_id
-    LEFT JOIN doctor d ON d.doctor_id = a.provider_id
+    LEFT JOIN doctor d ON d.doctor_id = a.doctor_id
     WHERE 1=1
   `;
   const params: any[] = [];
 
   if (opts.startDate) {
-    sql += " AND a.start_time >= ?";
+    sql += " AND a.start_at >= ?";
     params.push(opts.startDate);
   }
 
   if (opts.endDate) {
-    sql += " AND a.start_time <= ?";
+    sql += " AND a.start_at <= ?";
     params.push(opts.endDate);
   }
 
@@ -133,7 +133,7 @@ export async function listAllForStaff(
     params.push(opts.status);
   }
 
-  sql += " ORDER BY a.start_time ASC";
+  sql += " ORDER BY a.start_at ASC";
 
   if (typeof opts.limit === "number") {
     sql += " LIMIT ?";
@@ -151,7 +151,7 @@ export async function listAllForStaff(
 
 export async function countByStatus() {
   const [rows] = await pool.query(
-    "SELECT status, COUNT(*) AS total FROM appointments GROUP BY status"
+    "SELECT status, COUNT(*) AS total FROM appointment GROUP BY status"
   );
   return rows;
 }
@@ -163,7 +163,7 @@ export async function updateStatus(
 ) {
   const params: any[] = [status, opts.notes ?? null];
   let sql = `
-    UPDATE appointments
+    UPDATE appointment
     SET status = ?, notes = ?, updated_at = NOW()
   `;
 
@@ -186,17 +186,17 @@ export async function listBetween(
 ) {
   let sql = `
     SELECT *
-    FROM appointments
-    WHERE start_time BETWEEN ? AND ?
+    FROM appointment
+    WHERE start_at BETWEEN ? AND ?
   `;
   const params: any[] = [start, end];
 
   if (typeof doctorId === "number") {
-    sql += " AND provider_id = ?";
+    sql += " AND doctor_id = ?";
     params.push(doctorId);
   }
 
-  sql += " ORDER BY start_time ASC";
+  sql += " ORDER BY start_at ASC";
   const [rows] = await pool.query(sql, params);
   return rows;
 }
@@ -205,10 +205,10 @@ export async function getUpcomingForPatient(patientId: number, limit = 5) {
   const [rows] = await pool.query(
     `
       SELECT *
-      FROM appointments
+      FROM appointment
       WHERE patient_id = ?
-        AND start_time >= NOW()
-      ORDER BY start_time ASC
+        AND start_at >= NOW()
+      ORDER BY start_at ASC
       LIMIT ?
     `,
     [patientId, limit]
