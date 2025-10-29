@@ -224,7 +224,7 @@ async function fetchStaffPatients(limit = 200): Promise<StaffPatient[]> {
 async function fetchStaffDoctors(limit = 200): Promise<StaffDoctorInfo[]> {
   const normalizedLimit = Math.min(Math.max(limit, 1), 500);
   const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT doctor_id, doc_fname, doc_lname, email, phone
+    `SELECT doctor_id, doc_fname, doc_lname, phone
      FROM doctor
      ORDER BY doc_fname ASC
      LIMIT ?`,
@@ -235,7 +235,7 @@ async function fetchStaffDoctors(limit = 200): Promise<StaffDoctorInfo[]> {
     doctor_id: Number(row.doctor_id),
     name: [row.doc_fname, row.doc_lname].filter(Boolean).join(" ").trim(),
     specialty: null, // No specialty column in current database schema
-    email: row.email ?? null,
+    email: null, // Email not available in doctor table query
     phone: row.phone ?? null,
   }));
 }
