@@ -13,28 +13,40 @@ export async function list({ date, providerId, patientId, status }: any) {
 }
 
 export async function getOne(id: number) {
-  const [rows] = await pool.query("SELECT * FROM appointment WHERE id=?", [id]);
+  const [rows] = await pool.query("SELECT * FROM appointment WHERE appointment_id=?", [id]);
   return (rows as any[])[0] || null;
 }
 
 export async function create(p: any) {
+  console.log('Creating appointment with params:', {
+    patientId: p.patientId,
+    providerId: p.providerId,
+    start: p.start,
+    end: p.end,
+    reason: p.reason,
+    status: p.status
+  });
+  
+  // Handle null providerId (unassigned appointments)
+  const doctorId = p.providerId && p.providerId !== 'unassigned' ? p.providerId : null;
+  
   const [r] = await pool.execute(
     "INSERT INTO appointment (patient_id, doctor_id, start_at, end_at, reason, status) VALUES (?, ?, ?, ?, ?, ?)",
-    [p.patientId, p.providerId, p.start, p.end, p.reason ?? null, p.status ?? "scheduled"]
+    [p.patientId, doctorId, p.start, p.end, p.reason ?? null, p.status ?? "scheduled"]
   );
   return (r as any).insertId as number;
 }
 
 export async function update(id: number, patch: any) {
   const [r] = await pool.execute(
-    "UPDATE appointment SET start_at=?, end_at=?, status=?, reason=? WHERE id=?",
+    "UPDATE appointment SET start_at=?, end_at=?, status=?, reason=? WHERE appointment_id=?",
     [patch.start, patch.end, patch.status, patch.reason, id]
   );
   return r;
 }
 
 export async function remove(id: number) {
-  await pool.execute("DELETE FROM appointment WHERE id=?", [id]);
+  await pool.execute("DELETE FROM appointment WHERE appointment_id=?", [id]);
 }
 
 export async function listForPatient(
@@ -172,7 +184,7 @@ export async function updateStatus(
     params.push(opts.updatedBy);
   }
 
-  sql += " WHERE id = ?";
+  sql += " WHERE appointment_id = ?";
   params.push(id);
 
   const [result] = await pool.execute(sql, params);
