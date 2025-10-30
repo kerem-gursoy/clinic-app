@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { StatusChip } from "@/components/status-chip"
 import { EmptyState } from "@/components/empty-state"
@@ -55,44 +56,76 @@ const STATUS_FILTERS: Array<{ value: AppointmentStatus | "all"; label: string }>
 
 
 export default function DoctorAppointmentsPage() {
-  const [viewMode, setViewMode] = useState<ViewMode>("week")
+  const [viewMode, setViewMode] = useState<ViewMode>("agenda")
   const [currentDate, setCurrentDate] = useState(new Date())
   const [appointments, setAppointments] = useState<CalendarAppointment[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState<AppointmentStatus | "all">("all")
+  const router = useRouter()
+
+  const cancelledRef = useRef(false)
+
+  async function fetchAppointments() {
+    try {
+      const token = typeof window !== "undefined" ? window.localStorage.getItem("authToken") : null
+      const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3000/api"
+      const res = await fetch(`${baseUrl}/doctor/appointments`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        credentials: "include",
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok || !Array.isArray(data.appointments)) {
+        throw new Error("Failed to load appointments")
+      }
+
+      if (cancelledRef.current) return
+      setAppointments(data.appointments.map(mapAppointment))
+    } catch (err) {
+      console.error(err)
+      if (!cancelledRef.current) {
+        setAppointments([])
+      }
+    } finally {
+      if (!cancelledRef.current) {
+        setIsLoading(false)
+      }
+    }
+  }
 
   useEffect(() => {
-    let cancelled = false
+    cancelledRef.current = false
+    fetchAppointments()
+    return () => {
+      cancelledRef.current = true
+    }
+  }, [])
 
-    const fetchAppointments = async () => {
-      try {
-        const token = typeof window !== "undefined" ? window.localStorage.getItem("authToken") : null
-        const res = await fetch(apiPath("/doctor/appointments"), {
-          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-          credentials: "include",
-        })
-        const data = await res.json().catch(() => ({}))
-        if (!res.ok || !Array.isArray(data.appointments)) {
-          throw new Error("Failed to load appointments")
-        }
-
-        if (cancelled) return
-        setAppointments(data.appointments.map(mapAppointment))
-      } catch (err) {
-        console.error(err)
-        if (!cancelled) {
-          setAppointments([])
-        }
-      } finally {
-        if (!cancelled) {
-          setIsLoading(false)
+  useEffect(() => {
+    // refetch when returning to page or when another tab signals refresh
+    const onVisibility = async () => {
+      if (document.visibilityState === "visible") {
+        const flag = localStorage.getItem("appointments_refresh")
+        if (flag) {
+          setIsLoading(true)
+          await fetchAppointments()
+          localStorage.removeItem("appointments_refresh")
         }
       }
     }
 
-    fetchAppointments()
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === "appointments_refresh") {
+        setIsLoading(true)
+        fetchAppointments()
+        localStorage.removeItem("appointments_refresh")
+      }
+    }
+
+    document.addEventListener("visibilitychange", onVisibility)
+    window.addEventListener("storage", onStorage)
     return () => {
-      cancelled = true
+      document.removeEventListener("visibilitychange", onVisibility)
+      window.removeEventListener("storage", onStorage)
     }
   }, [])
 
@@ -161,6 +194,11 @@ export default function DoctorAppointmentsPage() {
               {label}
             </Button>
           ))}
+        </div>
+        <div className="flex items-center gap-2">
+          <Button size="sm" onClick={() => router.push("/appointments/new")} className="rounded-full">
+            + New Appointment
+          </Button>
         </div>
       </div>
 
@@ -268,7 +306,7 @@ function WeekView({ appointments, currentDate }: { appointments: CalendarAppoint
               })
 
               return (
-                <div key={i} className="p-2 border-r last:border-r-0 min-h-[80px] hover:bg-muted/30 transition-colors">
+                <div key={i} className="p-2 border-r last:border-r-0 min-h-20 hover:bg-muted/30 transition-colors">
                   {hourAppointments.map((apt) => (
                     <div
                       key={apt.id}

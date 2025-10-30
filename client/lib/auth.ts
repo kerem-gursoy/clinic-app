@@ -6,12 +6,14 @@ interface ApiAuthUser {
   user_id: number;
   email: string;
   role: ApiUserRole;
+  first_name?: string;
 }
 
 export interface AuthUser {
   user_id: number;
   email: string;
   role: UserRole;
+  first_name?: string;
 }
 
 interface LoginSuccessPayload {
@@ -97,6 +99,7 @@ export async function fetchCurrentUser(): Promise<AuthUser | null> {
     user_id: payload.user.user_id,
     email: payload.user.email,
     role: normalizeRole(payload.user.role as ApiUserRole),
+    first_name: payload.user.first_name,
   };
 
   persistAuth(token, authUser);
@@ -122,6 +125,7 @@ export async function login(email: string, password: string) {
     user_id: payload.user.user_id,
     email: payload.user.email,
     role: normalizeRole(payload.user.role),
+    first_name: payload.user.first_name,
   };
 
   persistAuth(payload.token, authUser);
