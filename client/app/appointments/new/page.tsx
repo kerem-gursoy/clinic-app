@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import { getStoredAuthUser } from "@/lib/auth"
+import { apiPath } from "@/app/lib/api"
 import type { UserRole } from "@/lib/types"
 
 export default function NewAppointmentPage() {
@@ -23,10 +24,15 @@ export default function NewAppointmentPage() {
   const [duration, setDuration] = useState<number>(60)
   const [reason, setReason] = useState<string>("")
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [minStartValue, setMinStartValue] = useState<string>("")
   const [doctors, setDoctors] = useState<Array<any>>([])
   const [doctorsLoading, setDoctorsLoading] = useState(false)
   const [doctorsError, setDoctorsError] = useState<string | null>(null)
   const [errors, setErrors] = useState<string | null>(null)
+
+  useEffect(() => {
+    setMinStartValue(new Date().toISOString().slice(0, 16))
+  }, [])
 
   useEffect(() => {
     const user = getStoredAuthUser()
@@ -44,8 +50,7 @@ export default function NewAppointmentPage() {
         ;(async () => {
           try {
             const token = typeof window !== "undefined" ? window.localStorage.getItem("authToken") : null
-            const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3000/api"
-            const res = await fetch(`${baseUrl}/api/staff/doctors`, {
+            const res = await fetch(apiPath("/staff/doctors"), {
               headers: token ? { Authorization: `Bearer ${token}` } : undefined,
               credentials: "include",
             })
@@ -79,11 +84,13 @@ export default function NewAppointmentPage() {
     searchTimer.current = window.setTimeout(async () => {
       try {
         const token = typeof window !== "undefined" ? window.localStorage.getItem("authToken") : null
-        const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3000/api"
-        const res = await fetch(`${baseUrl}/patients/search?q=${encodeURIComponent(patientQuery)}&limit=25`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-          credentials: "include",
-        })
+        const res = await fetch(
+          `${apiPath("/patients/search")}?q=${encodeURIComponent(patientQuery)}&limit=25`,
+          {
+            headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+            credentials: "include",
+          },
+        )
         const body = await res.json().catch(() => ({}))
         if (res.ok && Array.isArray(body.patients)) {
           setPatientResults(body.patients)
@@ -155,9 +162,8 @@ export default function NewAppointmentPage() {
       }
 
       const token = typeof window !== "undefined" ? window.localStorage.getItem("authToken") : null
-      const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3000/api"
 
-      const res = await fetch(`${baseUrl}/appointments`, {
+      const res = await fetch(apiPath("/appointments"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -280,7 +286,7 @@ export default function NewAppointmentPage() {
             className="w-full px-3 py-2 border rounded"
             value={start}
             onChange={(e) => setStart(e.target.value)}
-            min={new Date().toISOString().slice(0,16)}
+            min={minStartValue || undefined}
           />
         </div>
 

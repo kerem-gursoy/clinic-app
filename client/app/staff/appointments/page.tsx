@@ -49,8 +49,7 @@ export default function StaffAppointmentsPage() {
   async function fetchAppointments() {
     try {
       const token = typeof window !== "undefined" ? window.localStorage.getItem("authToken") : null
-      const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3000/api"
-      const res = await fetch(`${baseUrl}/api/staff/appointments`, {
+      const res = await fetch(apiPath("/staff/appointments"), {
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
         credentials: "include",
       })
