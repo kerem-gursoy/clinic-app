@@ -45,7 +45,7 @@ export default function NewAppointmentPage() {
           try {
             const token = typeof window !== "undefined" ? window.localStorage.getItem("authToken") : null
             const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3000/api"
-            const res = await fetch(`${baseUrl}/staff/doctors`, {
+            const res = await fetch(`${baseUrl}/api/staff/doctors`, {
               headers: token ? { Authorization: `Bearer ${token}` } : undefined,
               credentials: "include",
             })
@@ -172,11 +172,9 @@ export default function NewAppointmentPage() {
         throw new Error(body?.error || "Failed to create appointment")
       }
 
-      // set refresh flag so appointments list will reload when we return
       try {
         localStorage.setItem("appointments_refresh", String(Date.now()))
       } catch (e) {
-        // ignore
       }
       router.back()
     } catch (err) {
@@ -200,7 +198,6 @@ export default function NewAppointmentPage() {
             value={patientQuery}
             onChange={(e) => {
               setPatientQuery(e.target.value)
-              // clear selected id if user edits
               setPatientId("")
             }}
             placeholder="Search patients by name or email (min 2 chars)"
