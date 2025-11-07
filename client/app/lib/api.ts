@@ -1,20 +1,23 @@
 // app/lib/api.ts
-export function getApiBaseUrl() {
-  const v = process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "");
+const rawBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "");
 
+const apiBaseUrl = (() => {
   if (process.env.NODE_ENV === "production") {
-    if (!v) {
+    if (!rawBaseUrl) {
       throw new Error("NEXT_PUBLIC_API_BASE_URL is missing at build time.");
     }
-    if (/^https?:\/\/(localhost|127\.0\.0\.1)(:|$)/i.test(v)) {
-      throw new Error(`Invalid NEXT_PUBLIC_API_BASE_URL for production: ${v}`);
+    if (/^https?:\/\/(localhost|127\.0\.0\.1)(:|$)/i.test(rawBaseUrl)) {
+      throw new Error(`Invalid NEXT_PUBLIC_API_BASE_URL for production: ${rawBaseUrl}`);
     }
-    return v;
+    return rawBaseUrl;
   }
 
-  return v ?? "http://localhost:3000";
-}
+  return rawBaseUrl ?? "http://localhost:3000";
+})();
+
+export { apiBaseUrl };
 
 export function apiPath(p: string) {
-  return `${getApiBaseUrl()}/api${p.startsWith("/") ? p : `/${p}`}`;
+  const normalizedPath = p.startsWith("/") ? p : `/${p}`;
+  return `${apiBaseUrl}${normalizedPath}`;
 }
