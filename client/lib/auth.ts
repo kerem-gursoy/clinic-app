@@ -107,7 +107,7 @@ export async function fetchCurrentUser(): Promise<AuthUser | null> {
 }
 
 export async function login(email: string, password: string) {
-  const response = await fetch(apiPath("/auth/login"), {
+  const response = await fetch(apiPath("/"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password }),
