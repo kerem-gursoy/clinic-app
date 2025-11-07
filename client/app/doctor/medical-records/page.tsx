@@ -18,14 +18,14 @@ export default function MedicalRecordsPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [report, setReport] = useState<MedicalRecordReport | null>(null)
   const [query, setQuery] = useState<MedicalRecordQuery>({
-    patientName: "",
-    diagnosis: "",
+    patientFirstName: "",
+    patientLastName: "",
     dateFrom: "",
     dateTo: "",
     symptoms: [],
-    medications: [],
     doctorId: "",
   })
+  const [error, setError] = useState<string | null>(null)
 
   const handleQueryChange = (field: keyof MedicalRecordQuery, value: string | string[]) => {
     setQuery(prev => ({ ...prev, [field]: value }))
@@ -41,19 +41,10 @@ export default function MedicalRecordsPage() {
     handleQueryChange("symptoms", query.symptoms?.filter(s => s !== symptom) || [])
   }
 
-  const addMedication = (medication: string) => {
-    if (medication.trim() && !query.medications?.includes(medication.trim())) {
-      handleQueryChange("medications", [...(query.medications || []), medication.trim()])
-    }
-  }
-
-  const removeMedication = (medication: string) => {
-    handleQueryChange("medications", query.medications?.filter(m => m !== medication) || [])
-  }
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
+    setError(null)
 
     try {
       const token = typeof window !== "undefined" ? window.localStorage.getItem("authToken") : null
@@ -84,11 +75,17 @@ export default function MedicalRecordsPage() {
       }
 
       const data = await res.json()
-      setReport(data)
+      
+      if (!data || !data.records || data.records.length === 0) {
+        setError("No matching patient records found. Please refine your search criteria.")
+        setReport(null)
+      } else {
+        setReport(data)
+      }
     } catch (err) {
       console.error("Medical records query failed:", err)
-      // For demo purposes, show sample data
-      setReport(generateSampleReport(query))
+      setError("No matching patient records found. Please refine your search criteria.")
+      setReport(null)
     } finally {
       setIsLoading(false)
     }
@@ -96,15 +93,15 @@ export default function MedicalRecordsPage() {
 
   const clearQuery = () => {
     setQuery({
-      patientName: "",
-      diagnosis: "",
+      patientFirstName: "",
+      patientLastName: "",
       dateFrom: "",
       dateTo: "",
       symptoms: [],
-      medications: [],
       doctorId: "",
     })
     setReport(null)
+    setError(null)
   }
 
   return (
@@ -132,24 +129,25 @@ export default function MedicalRecordsPage() {
             </CardHeader>
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <Label htmlFor="patientName">Patient Name</Label>
-                  <Input
-                    id="patientName"
-                    placeholder="Enter patient name..."
-                    value={query.patientName}
-                    onChange={(e) => handleQueryChange("patientName", e.target.value)}
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="diagnosis">Diagnosis</Label>
-                  <Input
-                    id="diagnosis"
-                    placeholder="Enter diagnosis..."
-                    value={query.diagnosis}
-                    onChange={(e) => handleQueryChange("diagnosis", e.target.value)}
-                  />
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label htmlFor="patientFirstName">First Name</Label>
+                    <Input
+                      id="patientFirstName"
+                      placeholder="Enter first name..."
+                      value={query.patientFirstName}
+                      onChange={(e) => handleQueryChange("patientFirstName", e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="patientLastName">Last Name</Label>
+                    <Input
+                      id="patientLastName"
+                      placeholder="Enter last name..."
+                      value={query.patientLastName}
+                      onChange={(e) => handleQueryChange("patientLastName", e.target.value)}
+                    />
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2">
@@ -201,33 +199,7 @@ export default function MedicalRecordsPage() {
                   </div>
                 </div>
 
-                <div>
-                  <Label>Medications</Label>
-                  <div className="flex gap-2 mb-2">
-                    <Input
-                      placeholder="Add medication..."
-                      onKeyPress={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault()
-                          addMedication(e.currentTarget.value)
-                          e.currentTarget.value = ""
-                        }
-                      }}
-                    />
-                  </div>
-                  <div className="flex flex-wrap gap-1">
-                    {query.medications?.map((medication) => (
-                      <Badge
-                        key={medication}
-                        variant="secondary"
-                        className="cursor-pointer"
-                        onClick={() => removeMedication(medication)}
-                      >
-                        {medication} ×
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
+
 
                 <div className="flex gap-2 pt-4">
                   <Button type="submit" disabled={isLoading} className="flex-1">
@@ -251,7 +223,17 @@ export default function MedicalRecordsPage() {
 
         {/* Results */}
         <div className="lg:col-span-2">
-          {report ? (
+          {error ? (
+            <Card>
+              <CardContent className="py-12">
+                <div className="text-center text-destructive">
+                  <Search className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <h3 className="text-lg font-medium mb-2">No Results Found</h3>
+                  <p>{error}</p>
+                </div>
+              </CardContent>
+            </Card>
+          ) : report ? (
             <Tabs defaultValue="records" className="w-full">
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="records">Records ({report.totalRecords})</TabsTrigger>
@@ -442,88 +424,4 @@ export default function MedicalRecordsPage() {
   )
 }
 
-// Sample data generator for demonstration
-function generateSampleReport(query: MedicalRecordQuery): MedicalRecordReport {
-  const sampleRecords = [
-    {
-      id: "mr-1",
-      patientId: "p-1",
-      patientName: "John Smith",
-      appointmentId: "apt-1",
-      date: "2024-10-15",
-      diagnosis: "Hypertension",
-      symptoms: ["headache", "dizziness", "fatigue"],
-      treatment: "Lifestyle modification and medication",
-      medications: [
-        { name: "Lisinopril", dosage: "10mg", frequency: "Daily", duration: "30 days" },
-        { name: "Hydrochlorothiazide", dosage: "25mg", frequency: "Daily", duration: "30 days" }
-      ],
-      notes: "Patient shows good response to treatment. Follow-up in 4 weeks.",
-      doctorId: "d-1",
-      doctorName: "Sarah Johnson"
-    },
-    {
-      id: "mr-2",
-      patientId: "p-2",
-      patientName: "Mary Davis",
-      appointmentId: "apt-2",
-      date: "2024-10-12",
-      diagnosis: "Type 2 Diabetes",
-      symptoms: ["increased thirst", "frequent urination", "blurred vision"],
-      treatment: "Dietary counseling and medication initiation",
-      medications: [
-        { name: "Metformin", dosage: "500mg", frequency: "Twice daily", duration: "90 days" }
-      ],
-      notes: "HbA1c: 8.2%. Patient counseled on diet and exercise. Diabetes educator referral.",
-      doctorId: "d-1",
-      doctorName: "Sarah Johnson"
-    },
-    {
-      id: "mr-3",
-      patientId: "p-3",
-      patientName: "Robert Wilson",
-      appointmentId: "apt-3",
-      date: "2024-10-10",
-      diagnosis: "Acute Bronchitis",
-      symptoms: ["cough", "fever", "chest congestion"],
-      treatment: "Symptomatic treatment and rest",
-      medications: [
-        { name: "Azithromycin", dosage: "250mg", frequency: "Daily", duration: "5 days" },
-        { name: "Albuterol inhaler", dosage: "2 puffs", frequency: "As needed", duration: "30 days" }
-      ],
-      notes: "Viral bronchitis likely. Symptomatic treatment recommended. Return if worsening.",
-      doctorId: "d-1",
-      doctorName: "Sarah Johnson"
-    }
-  ]
 
-  // Filter records based on query
-  let filteredRecords = sampleRecords
-  
-  if (query.patientName) {
-    filteredRecords = filteredRecords.filter(r => 
-      r.patientName.toLowerCase().includes(query.patientName!.toLowerCase())
-    )
-  }
-  
-  if (query.diagnosis) {
-    filteredRecords = filteredRecords.filter(r => 
-      r.diagnosis.toLowerCase().includes(query.diagnosis!.toLowerCase())
-    )
-  }
-
-  return {
-    query,
-    totalRecords: filteredRecords.length,
-    records: filteredRecords,
-    summary: {
-      mostCommonDiagnosis: ["Hypertension", "Type 2 Diabetes", "Acute Bronchitis"],
-      mostCommonSymptoms: ["headache", "cough", "fatigue", "dizziness"],
-      mostPrescribedMedications: ["Lisinopril", "Metformin", "Azithromycin"],
-      dateRange: {
-        earliest: "2024-10-10",
-        latest: "2024-10-15"
-      }
-    }
-  }
-}
