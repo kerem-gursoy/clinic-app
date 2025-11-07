@@ -85,7 +85,7 @@ export default function NewAppointmentPage() {
       try {
         const token = typeof window !== "undefined" ? window.localStorage.getItem("authToken") : null
         const res = await fetch(
-          `${apiPath("/patients/search")}?q=${encodeURIComponent(patientQuery)}&limit=25`,
+          `${apiPath("api/patients/search")}?q=${encodeURIComponent(patientQuery)}&limit=25`,
           {
             headers: token ? { Authorization: `Bearer ${token}` } : undefined,
             credentials: "include",

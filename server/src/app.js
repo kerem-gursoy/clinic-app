@@ -21,9 +21,9 @@ app.use(
 
 app.use(express.json());
 
-app.get("/api/health", (_req, res) => res.json({ ok: true }));
+app.get("/health", (_req, res) => res.json({ ok: true }));
 
-app.use("/api", routes);
+app.use(routes);
 
 app.use((_req, res) => res.status(404).json({ error: "Not found" }));
 
@@ -33,4 +33,3 @@ app.use((err, _req, res, _next) => {
 });
 
 export default app;
-
