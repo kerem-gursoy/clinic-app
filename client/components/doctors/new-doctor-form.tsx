@@ -1,18 +1,21 @@
 "use client"
 
 import { useState } from "react"
-
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { apiPath } from "@/app/lib/api"
+import { formatPhoneNumber } from "@/lib/utils"
+import { Trash2 } from "lucide-react"
 
 interface NewDoctorFormProps {
   onCancel?: () => void
   onSuccess?: () => void
+  doctorId?: number
 }
 
-export function NewDoctorForm({ onCancel, onSuccess }: NewDoctorFormProps) {
+export function NewDoctorForm({ onCancel, onSuccess, doctorId }: NewDoctorFormProps) {
   const [firstName, setFirstName] = useState("")
   const [lastName, setLastName] = useState("")
   const [middleInitial, setMiddleInitial] = useState("")
@@ -24,6 +27,7 @@ export function NewDoctorForm({ onCancel, onSuccess }: NewDoctorFormProps) {
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const resetForm = () => {
@@ -37,6 +41,36 @@ export function NewDoctorForm({ onCancel, onSuccess }: NewDoctorFormProps) {
     setSsn("")
     setPassword("")
     setConfirmPassword("")
+  }
+
+  const handleDelete = async () => {
+    if (!doctorId) return
+
+    setIsDeleting(true)
+    setError(null)
+    try {
+      const token = typeof window !== "undefined" ? window.localStorage.getItem("authToken") : null
+
+      const res = await fetch(apiPath(`/doctors/${doctorId}`), {
+        method: "DELETE",
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        credentials: "include",
+      })
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(body?.error || "Failed to delete doctor")
+      }
+
+      onSuccess?.()
+    } catch (err) {
+      console.error(err)
+      setError((err as Error).message || "Failed to delete doctor")
+    } finally {
+      setIsDeleting(false)
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -172,8 +206,11 @@ export function NewDoctorForm({ onCancel, onSuccess }: NewDoctorFormProps) {
             <Label htmlFor="phone">Phone</Label>
             <Input
               id="phone"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
+              value={formatPhoneNumber(phone)}
+              onChange={(e) => {
+                const rawDigits = e.target.value.replace(/\D/g, "") 
+                setPhone(rawDigits)
+              }}
               placeholder="(555) 123-4567"
             />
           </div>
@@ -234,6 +271,29 @@ export function NewDoctorForm({ onCancel, onSuccess }: NewDoctorFormProps) {
           <Button type="button" variant="outline" onClick={onCancel}>
             Cancel
           </Button>
+          {doctorId && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button type="button" variant="ghost" size="sm" className="ml-auto text-destructive hover:text-destructive">
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete Doctor</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Are you sure you want to delete this doctor? This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <div className="flex gap-2 justify-end">
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleDelete} disabled={isDeleting} className="bg-destructive hover:bg-destructive/90">
+                    {isDeleting ? "Deleting…" : "Delete"}
+                  </AlertDialogAction>
+                </div>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
         </div>
       </form>
     </div>

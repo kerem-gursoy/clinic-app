@@ -301,3 +301,32 @@ function normalizeLimit(value, min, max) {
   }
   return Math.min(Math.max(parsed, min), max);
 }
+
+export async function deleteDoctor(doctorId) {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    const [doctor] = await connection.query(
+      "SELECT email FROM doctor WHERE doctor_id = ?",
+      [doctorId]
+    );
+
+    if (doctor.length === 0) {
+      throw Object.assign(new Error("Doctor not found"), { statusCode: 404 });
+    }
+
+    await connection.query("DELETE FROM login WHERE email = ?", [doctor[0].email]);
+
+    await connection.query("DELETE FROM doctor WHERE doctor_id = ?", [doctorId]);
+
+    await connection.commit();
+    return { success: true, message: "Doctor deleted successfully" };
+  } catch (err) {
+    await connection.rollback();
+    console.error("deleteDoctor transaction failed:", err);
+    throw err;
+  } finally {
+    connection.release();
+  }
+}
