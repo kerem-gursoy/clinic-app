@@ -6,7 +6,8 @@ export async function registerDoctor(req, res) {
     return res.status(201).json(result);
   } catch (err) {
     console.error("createDoctor failed", err);
-    return res.status(500).json({ error: "Unable to create doctor" });
+    const status = typeof err?.statusCode === "number" ? err.statusCode : 500;
+    return res.status(status).json({ error: status === 500 ? "Unable to create doctor" : err.message });
   }
 }
 
@@ -29,4 +30,3 @@ export async function registerStaff(req, res) {
     return res.status(500).json({ error: "Unable to create staff" });
   }
 }
-

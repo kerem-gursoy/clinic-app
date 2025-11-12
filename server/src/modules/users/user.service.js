@@ -1,6 +1,19 @@
 import argon2 from "argon2";
 import { pool } from "../../db/pool.js";
 
+function validationError(message) {
+  const err = new Error(message);
+  err.statusCode = 400;
+  return err;
+}
+
+async function assertUnique(connection, query, value, message) {
+  const [rows] = await connection.query(query, [value]);
+  if (rows.length > 0) {
+    throw validationError(message);
+  }
+}
+
 export async function createPatient(data) {
   const connection = await pool.getConnection();
   try {
@@ -52,6 +65,16 @@ export async function createDoctor(data) {
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
+
+    if (!data.ssn) throw validationError("SSN is required");
+    if (!data.license_no) throw validationError("License number is required");
+    if (!data.doc_fname || !data.doc_lname) throw validationError("Doctor name is required");
+    if (!data.email) throw validationError("Email is required");
+
+    await assertUnique(connection, "SELECT doctor_id FROM doctor WHERE ssn = ? LIMIT 1", data.ssn, "A doctor with this SSN already exists");
+    await assertUnique(connection, "SELECT doctor_id FROM doctor WHERE license_no = ? LIMIT 1", data.license_no, "A doctor with this license number already exists");
+    await assertUnique(connection, "SELECT doctor_id FROM doctor WHERE email = ? LIMIT 1", data.email, "A doctor with this email already exists");
+    await assertUnique(connection, "SELECT user_id FROM login WHERE email = ? LIMIT 1", data.email, "This email is already associated with another user");
 
     const [doctorResult] = await connection.query(
       `INSERT INTO doctor (
@@ -278,4 +301,3 @@ function normalizeLimit(value, min, max) {
   }
   return Math.min(Math.max(parsed, min), max);
 }
-
