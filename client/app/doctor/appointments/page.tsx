@@ -5,10 +5,12 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { StatusChip } from "@/components/status-chip"
 import { EmptyState } from "@/components/empty-state"
+import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { Calendar, ChevronLeft, ChevronRight, Clock, User } from "lucide-react"
 import type { AppointmentStatus } from "@/lib/types"
 import { cn } from "@/lib/utils"
 import { apiPath } from "@/app/lib/api"
+import { NewAppointmentForm } from "@/components/appointments/new-appointment-form"
 
 interface DoctorAppointmentResponse {
   appointment_id: number
@@ -37,11 +39,10 @@ interface CalendarAppointment {
   notes?: string | null
 }
 
-type ViewMode = "week" | "day" | "agenda"
+type ViewMode = "week" | "agenda"
 
 const VIEW_OPTIONS: Array<{ value: ViewMode; label: string }> = [
   { value: "week", label: "Week" },
-  { value: "day", label: "Day" },
   { value: "agenda", label: "Agenda" },
 ]
 
@@ -61,6 +62,7 @@ export default function DoctorAppointmentsPage() {
   const [appointments, setAppointments] = useState<CalendarAppointment[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState<AppointmentStatus | "all">("all")
+  const [showNewAppointment, setShowNewAppointment] = useState(false)
   const router = useRouter()
 
   const cancelledRef = useRef(false)
@@ -146,8 +148,6 @@ export default function DoctorAppointmentsPage() {
     const newDate = new Date(currentDate)
     if (viewMode === "week") {
       newDate.setDate(newDate.getDate() - 7)
-    } else if (viewMode === "day") {
-      newDate.setDate(newDate.getDate() - 1)
     }
     setCurrentDate(newDate)
   }
@@ -156,8 +156,6 @@ export default function DoctorAppointmentsPage() {
     const newDate = new Date(currentDate)
     if (viewMode === "week") {
       newDate.setDate(newDate.getDate() + 7)
-    } else if (viewMode === "day") {
-      newDate.setDate(newDate.getDate() + 1)
     }
     setCurrentDate(newDate)
   }
@@ -173,13 +171,6 @@ export default function DoctorAppointmentsPage() {
       const weekEnd = new Date(weekStart)
       weekEnd.setDate(weekStart.getDate() + 6)
       return `${weekStart.toLocaleDateString("en-US", { month: "short", day: "numeric" })} - ${weekEnd.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`
-    } else if (viewMode === "day") {
-      return currentDate.toLocaleDateString("en-US", {
-        weekday: "long",
-        month: "long",
-        day: "numeric",
-        year: "numeric",
-      })
     }
     return ""
   }
@@ -208,7 +199,7 @@ export default function DoctorAppointmentsPage() {
           ))}
         </div>
         <div className="flex items-center gap-2">
-          <Button size="sm" onClick={() => router.push("/appointments/new")} className="rounded-full">
+          <Button size="sm" onClick={() => setShowNewAppointment(true)} className="rounded-full">
             + New Appointment
           </Button>
         </div>
@@ -231,20 +222,22 @@ export default function DoctorAppointmentsPage() {
         </div>
       )}
       {/* Calendar Controls */}
-      <div className="mb-6 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" onClick={goToPrevious}>
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <Button variant="outline" size="sm" onClick={goToToday}>
-            Today
-          </Button>
-          <Button variant="outline" size="icon" onClick={goToNext}>
-            <ChevronRight className="h-4 w-4" />
-          </Button>
+      {viewMode === "week" && (
+        <div className="mb-6 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="icon" onClick={goToPrevious}>
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <Button variant="outline" size="sm" onClick={goToToday}>
+              Today
+            </Button>
+            <Button variant="outline" size="icon" onClick={goToNext}>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+          <h2 className="text-lg font-semibold">{getDateRangeText()}</h2>
         </div>
-        <h2 className="text-lg font-semibold">{getDateRangeText()}</h2>
-      </div>
+      )}
 
       {/* Calendar View */}
       {isLoading ? (
@@ -260,6 +253,20 @@ export default function DoctorAppointmentsPage() {
       ) : (
         <WeekView appointments={appointments} currentDate={currentDate} />
       )}
+      <Dialog open={showNewAppointment} onOpenChange={setShowNewAppointment}>
+        <DialogContent className="max-w-3xl p-0" showCloseButton>
+          <div className="px-6 py-6">
+            <NewAppointmentForm
+              onCancel={() => setShowNewAppointment(false)}
+              onSuccess={() => {
+                setShowNewAppointment(false)
+                setIsLoading(true)
+                fetchAppointments()
+              }}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
@@ -339,14 +346,31 @@ function WeekView({ appointments, currentDate }: { appointments: CalendarAppoint
   )
 }
 
-function AgendaView({ appointments, statusFilter }: { appointments: CalendarAppointment[]; statusFilter: AppointmentStatus | "all" }) {
-  const sortedAppointments = appointments
-    .filter((apt) => statusFilter === "all" || apt.status === statusFilter)
-    .sort(
+function AgendaView({
+  appointments,
+  statusFilter,
+}: {
+  appointments: CalendarAppointment[]
+  statusFilter: AppointmentStatus | "all"
+}) {
+  const now = Date.now()
+  const filtered = appointments.filter((apt) => statusFilter === "all" || apt.status === statusFilter)
+
+  const upcoming = filtered.filter((apt) => new Date(`${apt.date}T${apt.time}`).getTime() >= now)
+  const past = filtered.filter((apt) => new Date(`${apt.date}T${apt.time}`).getTime() < now)
+
+  const sortedAppointments = [
+    ...upcoming.sort(
       (a, b) =>
-        new Date(`${a.date}T${a.time}`).getTime() -
-        new Date(`${b.date}T${b.time}`).getTime()
-    )
+        new Date(`${a.date}T${a.time}`).getTime() - new Date(`${b.date}T${b.time}`).getTime(),
+    ),
+    ...past
+      .sort(
+        (a, b) =>
+          new Date(`${a.date}T${a.time}`).getTime() - new Date(`${b.date}T${b.time}`).getTime(),
+      )
+      .reverse(),
+  ]
 
   if (sortedAppointments.length === 0) {
     return (
@@ -360,56 +384,100 @@ function AgendaView({ appointments, statusFilter }: { appointments: CalendarAppo
 
   return (
     <div className="bg-card rounded-xl border divide-y">
-      {sortedAppointments.map((appointment) => {
-        const appointmentDate = new Date(appointment.date)
-        const formattedDate = appointmentDate.toLocaleDateString("en-US", {
-          weekday: "short",
-          month: "short",
-          day: "numeric",
-          year: "numeric",
-        })
+      {sortedAppointments.map((appointment) => (
+        <AgendaListItem key={appointment.id} appointment={appointment} />
+      ))}
+    </div>
+  )
+}
 
-        return (
-          <div key={appointment.id} className="p-4 hover:bg-muted/50 transition-colors cursor-pointer">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-3 mb-2">
-                  <StatusChip status={appointment.status} />
-                  <span className="text-sm text-muted-foreground">{formattedDate}</span>
-                </div>
+function AgendaListItem({ appointment }: { appointment: CalendarAppointment }) {
+  const [isOpen, setIsOpen] = useState(false)
+  const appointmentDate = new Date(`${appointment.date}T00:00:00`)
+  const formattedDate = appointmentDate.toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  })
+  const startDateTime = new Date(`${appointment.date}T${appointment.time}`)
+  const formattedTime = startDateTime.toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+  })
 
-                <h3 className="font-semibold mb-1">{appointment.patientName}</h3>
+  return (
+    <div className="p-4 hover:bg-muted/50 transition-colors">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-3 mb-2">
+            <StatusChip status={appointment.status} />
+            <span className="text-sm text-muted-foreground">{formattedDate}</span>
+          </div>
 
-                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-sm text-muted-foreground">
-                  <div className="flex items-center gap-1.5">
-                    <Clock className="h-4 w-4" />
-                    <span>
-                      {appointment.time} ({appointment.duration} min)
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <User className="h-4 w-4" />
-                    <span>{appointment.reason}</span>
-                  </div>
-                </div>
+          <h3 className="font-semibold mb-1">{appointment.patientName}</h3>
 
-                {appointment.notes && <p className="text-sm text-muted-foreground mt-2">{appointment.notes}</p>}
-              </div>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-sm text-muted-foreground">
+            <div className="flex items-center gap-1.5">
+              <Clock className="h-4 w-4" />
+              <span>
+                {formattedTime} ({appointment.duration} min)
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <User className="h-4 w-4" />
+              <span>{appointment.reason}</span>
+            </div>
+          </div>
 
-              <Button variant="ghost" size="sm">
-                View
+          {appointment.notes && <p className="text-sm text-muted-foreground mt-2">{appointment.notes}</p>}
+        </div>
+
+        <Button variant="ghost" size="sm" onClick={() => setIsOpen(true)}>
+          View
+        </Button>
+      </div>
+
+      <Dialog open={isOpen} onOpenChange={setIsOpen}>
+        <DialogContent className="max-w-md">
+          <div className="space-y-4">
+            <div>
+              <p className="text-sm text-muted-foreground">Appointment with</p>
+              <h3 className="text-xl font-semibold">{appointment.patientName}</h3>
+            </div>
+
+            <div className="space-y-2 text-sm">
+              <DetailRow label="Status" value={<StatusChip status={appointment.status} />} />
+              <DetailRow label="Date" value={formattedDate} />
+              <DetailRow label="Time" value={`${formattedTime} (${appointment.duration} min)`} />
+              <DetailRow label="Reason" value={appointment.reason} />
+              {appointment.notes && <DetailRow label="Notes" value={appointment.notes} />}
+            </div>
+
+            <div className="flex justify-end">
+              <Button variant="outline" onClick={() => setIsOpen(false)}>
+                Close
               </Button>
             </div>
           </div>
-        )
-      })}
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}
+
+function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="flex items-start justify-between gap-4 text-sm">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="text-right font-medium">{value}</span>
     </div>
   )
 }
 
 function mapAppointment(appt: DoctorAppointmentResponse): CalendarAppointment {
   const start = appt.start_at ? new Date(appt.start_at) : null
-  const date = start ? start.toISOString().split("T")[0] : ""
+  const date = formatDateKey(start)
   const time = formatTimeForCalendar(start)
 
   return {
@@ -454,4 +522,14 @@ function formatTimeForCalendar(date: Date | null): string {
   const hours = date.getHours().toString().padStart(2, "0")
   const minutes = date.getMinutes().toString().padStart(2, "0")
   return `${hours}:${minutes}`
+}
+
+function formatDateKey(date: Date | null): string {
+  if (!date || Number.isNaN(date.getTime())) {
+    return ""
+  }
+  const year = date.getFullYear()
+  const month = (date.getMonth() + 1).toString().padStart(2, "0")
+  const day = date.getDate().toString().padStart(2, "0")
+  return `${year}-${month}-${day}`
 }
