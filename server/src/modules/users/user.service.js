@@ -194,7 +194,7 @@ export async function searchPatients(term, limit = 25) {
   const like = `%${String(term).replace(/%/g, "\\%").replace(/_/g, "\\_")}%`;
 
   const [rows] = await pool.query(
-    `SELECT patient_id, patient_fname, patient_lname, patient_email
+    `SELECT patient_id, patient_fname, patient_minit, patient_lname, patient_email
        FROM patient
        WHERE CONCAT(patient_fname, ' ', patient_lname) LIKE ?
           OR patient_email LIKE ?
@@ -205,6 +205,7 @@ export async function searchPatients(term, limit = 25) {
   return rows.map((row) => ({
     patient_id: row.patient_id,
     patient_fname: row.patient_fname,
+    patient_minit: row.patient_minit,
     patient_lname: row.patient_lname,
     patient_email: row.patient_email,
   }));
@@ -213,7 +214,7 @@ export async function searchPatients(term, limit = 25) {
 export async function listPatientsForStaff(limit = 200) {
   const normalizedLimit = normalizeLimit(limit, 1, 500);
   const [rows] = await pool.query(
-    `SELECT patient_id, patient_fname, patient_lname, patient_email, phone, dob
+    `SELECT patient_id, patient_fname, patient_minit, patient_lname, patient_email, phone, dob
        FROM patient
        ORDER BY patient_fname ASC
        LIMIT ?`,
@@ -222,7 +223,7 @@ export async function listPatientsForStaff(limit = 200) {
 
   return rows.map((row) => ({
     patient_id: Number(row.patient_id),
-    name: [row.patient_fname, row.patient_lname].filter(Boolean).join(" ").trim(),
+    name: [row.patient_fname, row.patient_minit, row.patient_lname].filter(Boolean).join(" ").trim(),
     email: row.patient_email ?? null,
     phone: row.phone ?? null,
     dob: row.dob ?? null,
@@ -300,4 +301,28 @@ function normalizeLimit(value, min, max) {
     return min;
   }
   return Math.min(Math.max(parsed, min), max);
+}
+
+export async function updatePatientById(id, updates) {
+  const fields = [];
+  const values = [];
+
+  for (const [key, val] of Object.entries(updates)) {
+    if (val !== undefined) {
+      fields.push(`${key} = ?`);
+      values.push(val);
+    }
+  }
+
+  if (!fields.length) return findPatientById(id);
+
+  const sql = `
+    UPDATE patient
+    SET ${fields.join(", ")}
+    WHERE patient_id = ?
+  `;
+  values.push(id);
+
+  await pool.query(sql, values); // assumes you're using db.query(pool, etc.)
+  return findPatientById(id);
 }

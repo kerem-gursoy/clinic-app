@@ -19,12 +19,22 @@ import { Label } from "@/components/ui/label"
 import { Search, User, Phone, Mail, Calendar, Plus } from "lucide-react"
 import { apiPath } from "@/app/lib/api"
 
+const authUser = JSON.parse(localStorage.getItem("authUser") || "{}");
+const staffId = Number(authUser?.user_id);
+
 interface StaffPatientResponse {
   patient_id: number
-  name: string
-  email: string | null
-  phone: string | null
-  dob: string | null
+  patient_fname: string
+  patient_lname: string
+  patient_minit?: string | null
+  dob?: string | null
+  gender?: string | null
+  phone?: string | null
+  patient_email?: string | null
+  address_id?: number | null
+  balance?: number | null
+  created_at?: string | null
+  prim_doctor?: string | null
 }
 
 interface StaffPatient {
@@ -87,21 +97,74 @@ export default function StaffPatientsPage() {
     [patients, searchQuery],
   )
 
-  const handleAddPatient = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleAddPatient = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     const formData = new FormData(e.currentTarget)
 
-    const newPatient: StaffPatient = {
-      id: `local-${Date.now()}`,
-      patientId: Math.max(0, patients.length ? Math.max(...patients.map((p) => p.patientId)) + 1 : 1),
-      name: (formData.get("name") as string) ?? "",
-      email: (formData.get("email") as string) ?? "",
-      phone: (formData.get("phone") as string) ?? "",
-      dob: (formData.get("dateOfBirth") as string) ?? null,
+    const newPatientData = {
+      patient_fname: formData.get("fname"),
+      patient_lname: formData.get("lname"),
+      patient_minit: formData.get("minit") || null,
+      dob: formData.get("dateOfBirth"),
+      gender: null,
+      phone: formData.get("phone"),
+      address_id: null,
+      balance: 0,
+      created_by: staffId,
+      med_id: null,
+      patient_email: formData.get("email"),
+      prim_doctor: null,
+      password: "secret123",
     }
 
-    setPatients((prev) => [...prev, newPatient])
-    setIsAddDialogOpen(false)
+    try {
+      const token = typeof window !== "undefined" ? window.localStorage.getItem("authToken") : null
+
+      const res = await fetch(apiPath("/patients"), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify(newPatientData),
+      })
+
+      if (!res.ok) {
+        const errorText = await res.text()
+        throw new Error(`Failed to create patient: ${errorText}`)
+      }
+
+      const result = await res.json()
+
+      const nameParts = [
+        newPatientData.patient_fname,
+        newPatientData.patient_minit ? `${newPatientData.patient_minit}.` : "",
+        newPatientData.patient_lname,
+      ]
+        .filter(Boolean)
+        .join(" ")
+
+      setPatients((prev) => [
+        ...prev,
+        {
+          id: `patient-${result.patientId}`,
+          patientId: result.patientId,
+          fname: newPatientData.patient_fname as string,
+          lname: newPatientData.patient_lname as string,
+          minit: newPatientData.patient_minit as string,
+          email: newPatientData.patient_email as string,
+          phone: newPatientData.phone as string,
+          dob: newPatientData.dob as string,
+          name: nameParts,
+        },
+      ])
+      //e.currentTarget.reset()
+      setIsAddDialogOpen(false)
+      
+    } catch (err) {
+      console.error(err)
+      alert("There was an error creating the patient.")
+    }
   }
 
   return (
@@ -128,8 +191,12 @@ export default function StaffPatientsPage() {
               </DialogHeader>
               <div className="grid gap-4 py-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="name">Full Name *</Label>
-                  <Input id="name" name="name" placeholder="John Doe" required />
+                  <Label htmlFor="fname">First Name *</Label>
+                  <Input id="fname" name="fname" placeholder="John" required />
+                  <Label htmlFor="minit">Middle Initial</Label>
+                  <Input maxLength={1} id="minit" name="minit" placeholder="M" />
+                  <Label htmlFor="lname">Last Name *</Label>
+                  <Input id="lname" name="lname" placeholder="Doe" required />
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="dateOfBirth">Date of Birth *</Label>
