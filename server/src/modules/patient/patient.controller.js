@@ -1,5 +1,5 @@
 import { getRecentPatientAppointments } from "../appointments/appointment.service.js";
-import { findPatientById, findPatientByEmail, searchPatients as searchPatientsService } from "../users/user.service.js";
+import { updatePatientById, findPatientById, findPatientByEmail, searchPatients as searchPatientsService } from "../users/user.service.js";
 
 export async function getMyAppointments(req, res) {
   const authUser = req.user;
@@ -61,4 +61,54 @@ function parseLimit(value, fallback, min, max) {
     return fallback;
   }
   return Math.min(Math.max(parsed, min), max);
+}
+
+
+export async function updatePatient(req, res) {
+  const { id } = req.params;
+  const authUser = req.user;
+
+  // Only the patient themself (or staff) can update
+  if (!authUser) return res.status(401).json({ error: "Unauthorized" });
+  if (authUser.role === "PATIENT" && Number(authUser.user_id) !== Number(id)) {
+    return res.status(403).json({ error: "Forbidden" });
+  }
+
+  const { patient_fname, patient_lname, patient_email, phone, dob } = req.body;
+
+  try {
+    const existing = await findPatientById(id);
+    if (!existing) return res.status(404).json({ error: "Patient not found" });
+
+    const updated = await updatePatientById(id, {
+      patient_fname,
+      patient_lname,
+      patient_email,
+      phone,
+      dob,
+    });
+
+    return res.json({ message: "Patient updated successfully", patient: updated });
+  } catch (err) {
+    console.error("patient update error:", err);
+    return res.status(500).json({ error: err.message ?? "Failed to update patient" });
+  }
+}
+
+export async function getPatientProfile(req, res) {
+  const authUser = req.user;
+  if (!authUser?.user_id) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  try {
+    const patient = await findPatientById(authUser.user_id);
+    if (!patient) {
+      return res.status(404).json({ error: "Patient not found" });
+    }
+    return res.json({ patient });
+  } catch (err) {
+    console.error("Error fetching patient profile:", err);
+    return res.status(500).json({ error: "Failed to fetch patient profile" });
+  }
 }
