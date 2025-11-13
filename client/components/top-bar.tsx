@@ -99,8 +99,10 @@ export function TopBar({ role, userName, onNewAppointment, onLogout }: TopBarPro
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>My Account</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>Profile</DropdownMenuItem>
-              <DropdownMenuItem>Settings</DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/patient/profile">Profile</Link>
+              </DropdownMenuItem>
+              
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleLogout} disabled={isLoggingOut}>
                 {isLoggingOut ? "Logging out..." : "Log out"}
