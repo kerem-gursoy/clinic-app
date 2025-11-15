@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { EmptyState } from "@/components/empty-state"
@@ -25,6 +26,7 @@ interface DoctorPatient {
 }
 
 export default function DoctorPatientsPage() {
+  const router = useRouter()
   const [searchQuery, setSearchQuery] = useState("")
   const [patients, setPatients] = useState<DoctorPatient[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -113,7 +115,7 @@ export default function DoctorPatientsPage() {
       ) : (
         <div className="bg-card rounded-xl border divide-y">
           {filteredPatients.map((patient) => (
-            <PatientRow key={patient.id} patient={patient} />
+            <PatientRow key={patient.id} patient={patient} onView={() => router.push(`/doctor/patients/${patient.patientId}`)} />
           ))}
         </div>
       )}
@@ -121,7 +123,7 @@ export default function DoctorPatientsPage() {
   )
 }
 
-function PatientRow({ patient }: { patient: DoctorPatient }) {
+function PatientRow({ patient, onView }: { patient: DoctorPatient; onView: () => void }) {
   return (
     <div className="p-4 hover:bg-muted/50 transition-colors">
       <div className="flex items-start justify-between gap-4">
@@ -154,11 +156,7 @@ function PatientRow({ patient }: { patient: DoctorPatient }) {
 
         {/* Actions */}
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="rounded-full bg-transparent">
-            <Plus className="h-4 w-4 mr-1" />
-            Book
-          </Button>
-          <Button variant="ghost" size="sm">
+          <Button variant="outline" size="sm" className="rounded-full bg-transparent" onClick={onView}>
             View
           </Button>
         </div>
