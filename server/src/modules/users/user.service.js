@@ -276,23 +276,37 @@ export async function listPatientsForDoctor(doctorId, limit = 200) {
   }));
 }
 
-export async function getFirstNameForRole(userId, role) {
+export async function getNamePartsForRole(userId, role) {
   if (role === "PATIENT") {
     const patient = await findPatientById(userId);
-    return patient?.patient_fname ?? null;
+    return {
+      firstName: patient?.patient_fname ?? null,
+      lastName: patient?.patient_lname ?? null,
+    };
   }
 
   if (role === "DOCTOR") {
     const doctor = await findDoctorById(userId);
-    return doctor?.doc_fname ?? null;
+    return {
+      firstName: doctor?.doc_fname ?? null,
+      lastName: doctor?.doc_lname ?? null,
+    };
   }
 
   if (role === "STAFF") {
     const staff = await findStaffById(userId);
-    return staff?.staff_first_name ?? null;
+    return {
+      firstName: staff?.staff_first_name ?? null,
+      lastName: staff?.staff_last_name ?? null,
+    };
   }
 
-  return null;
+  return { firstName: null, lastName: null };
+}
+
+export async function getFirstNameForRole(userId, role) {
+  const { firstName } = await getNamePartsForRole(userId, role);
+  return firstName;
 }
 
 function normalizeLimit(value, min, max) {
