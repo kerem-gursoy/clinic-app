@@ -2,7 +2,7 @@ import argon2 from "argon2";
 import jwt from "jsonwebtoken";
 import { pool } from "../../db/pool.js";
 import { getJwtSecret } from "../../config/env.js";
-import { getFirstNameForRole } from "../users/user.service.js";
+import { getNamePartsForRole } from "../users/user.service.js";
 
 export async function authenticateUser(email, password) {
   const [rows] = await pool.query(
@@ -26,7 +26,7 @@ export async function authenticateUser(email, password) {
     email: row.email,
   };
 
-  const firstName = await getFirstNameForRole(row.user_id, row.role);
+  const { firstName, lastName } = await getNamePartsForRole(row.user_id, row.role);
   const token = signToken(user);
 
   return {
@@ -34,6 +34,7 @@ export async function authenticateUser(email, password) {
     user: {
       ...user,
       first_name: firstName,
+      last_name: lastName,
     },
   };
 }
@@ -41,4 +42,3 @@ export async function authenticateUser(email, password) {
 export function signToken(user) {
   return jwt.sign(user, getJwtSecret(), { expiresIn: "7d" });
 }
-

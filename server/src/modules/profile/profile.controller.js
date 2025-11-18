@@ -24,8 +24,9 @@ export async function getCurrentUser(req, res) {
         getRecentPatientAppointments(userId, { limit: 5 }),
       ]);
       const firstName = profile?.patient_fname ?? null;
+      const lastName = profile?.patient_lname ?? null;
       return res.json({
-        user: { user_id: userId, role, email, first_name: firstName },
+        user: { user_id: userId, role, email, first_name: firstName, last_name: lastName },
         profile: profile ?? null,
         appointments,
       });
@@ -37,8 +38,9 @@ export async function getCurrentUser(req, res) {
         getRecentDoctorAppointments(userId, { limit: 5 }),
       ]);
       const firstName = profile?.doc_fname ?? null;
+      const lastName = profile?.doc_lname ?? null;
       return res.json({
-        user: { user_id: userId, role, email, first_name: firstName },
+        user: { user_id: userId, role, email, first_name: firstName, last_name: lastName },
         profile: profile ?? null,
         appointments,
       });
@@ -50,8 +52,9 @@ export async function getCurrentUser(req, res) {
         getRecentStaffAppointments({ limit: 10 }),
       ]);
       const firstName = profile?.staff_first_name ?? null;
+      const lastName = profile?.staff_last_name ?? null;
       return res.json({
-        user: { user_id: userId, role, email, first_name: firstName },
+        user: { user_id: userId, role, email, first_name: firstName, last_name: lastName },
         profile: profile ?? null,
         appointments,
       });
@@ -63,4 +66,3 @@ export async function getCurrentUser(req, res) {
     return res.status(500).json({ error: "Server error" });
   }
 }
-

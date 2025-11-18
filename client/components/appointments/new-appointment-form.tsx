@@ -13,13 +13,20 @@ import { apiPath } from "@/app/lib/api"
 interface NewAppointmentFormProps {
   onCancel?: () => void
   onSuccess?: () => void
+  initialPatientId?: number
+  initialPatientName?: string
 }
 
-export function NewAppointmentForm({ onCancel, onSuccess }: NewAppointmentFormProps) {
+export function NewAppointmentForm({
+  onCancel,
+  onSuccess,
+  initialPatientId,
+  initialPatientName,
+}: NewAppointmentFormProps) {
   const router = useRouter()
   const [currentUser, setCurrentUser] = useState<any>(null)
-  const [patientId, setPatientId] = useState<string>("")
-  const [patientQuery, setPatientQuery] = useState<string>("")
+  const [patientId, setPatientId] = useState<string>(initialPatientId ? String(initialPatientId) : "")
+  const [patientQuery, setPatientQuery] = useState<string>(initialPatientName ?? "")
   const [patientResults, setPatientResults] = useState<Array<any>>([])
   const [patientLoading, setPatientLoading] = useState(false)
   const searchTimer = useRef<number | null>(null)
@@ -53,6 +60,19 @@ export function NewAppointmentForm({ onCancel, onSuccess }: NewAppointmentFormPr
   useEffect(() => {
     setMinStartValue(new Date().toISOString().slice(0, 16))
   }, [])
+
+  useEffect(() => {
+    if (typeof initialPatientId === "number") {
+      setPatientId(String(initialPatientId))
+    }
+  }, [initialPatientId])
+
+  useEffect(() => {
+    if (typeof initialPatientName === "string") {
+      setPatientQuery(initialPatientName)
+      setPatientResults([])
+    }
+  }, [initialPatientName])
 
   useEffect(() => {
     const user = getStoredAuthUser()
