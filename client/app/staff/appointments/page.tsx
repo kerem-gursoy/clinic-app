@@ -12,6 +12,7 @@ import type { AppointmentStatus } from "@/lib/types"
 import { cn } from "@/lib/utils"
 import { apiPath } from "@/app/lib/api"
 import { NewAppointmentForm } from "@/components/appointments/new-appointment-form"
+import { CancelAppointmentForm } from "@/components/appointments/cancel-appointment-form"
 
 type ViewMode = "week" | "agenda"
 
@@ -76,6 +77,7 @@ export default function StaffAppointmentsPage() {
   const [doctorsLoading, setDoctorsLoading] = useState(false)
   const [doctorsError, setDoctorsError] = useState<string | null>(null)
   const [showNewAppointment, setShowNewAppointment] = useState(false)
+
 
   const cancelledRef = useRef(false)
 
@@ -492,6 +494,7 @@ function AgendaListItem({ appointment }: { appointment: StaffAppointmentItem }) 
     hour: "numeric",
     minute: "2-digit",
   })
+  const [showCancelForm, setShowCancelForm] = useState(false)
 
   return (
     <div className="p-4 hover:bg-muted/50 transition-colors">
@@ -542,11 +545,30 @@ function AgendaListItem({ appointment }: { appointment: StaffAppointmentItem }) 
               {appointment.notes && <DetailRow label="Notes" value={appointment.notes} />}
             </div>
 
-            <div className="flex justify-end">
-              <Button variant="outline" onClick={() => setIsOpen(false)}>
-                Close
-              </Button>
-            </div>
+                {appointment.status === "scheduled" && (
+                          <div className="flex justify-end">
+                              <Button variant="outline" onClick={() => setShowCancelForm(true)}>
+                                  Cancel Appointment
+                              </Button>
+                          </div>
+                      )}
+             <Dialog open={showCancelForm} onOpenChange={setShowCancelForm}>
+             <DialogContent>
+                              <CancelAppointmentForm
+                                  appointmentId={appointment.appointmentId} // pass the appointment id here
+                                  onSuccess={() => {
+                                      setShowCancelForm(false)  // close the cancel form after success
+                                      localStorage.setItem("appointments_refresh", String(Date.now())) // refresh appointments
+                                  }}
+                                  onCancel={() => setShowCancelForm(false)} // allow closing without cancelling
+                              />
+                          </DialogContent>
+                      </Dialog>
+                      <div className="flex justify-end">
+                          <Button variant="outline" onClick={() => setIsOpen(false)}>
+                              Close
+                          </Button>
+                      </div>
           </div>
         </DialogContent>
       </Dialog>

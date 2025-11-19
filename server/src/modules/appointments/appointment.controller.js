@@ -50,14 +50,24 @@ export async function createAppointment(req, res, next) {
 }
 
 export async function updateAppointment(req, res, next) {
-  try {
-    const id = Number(req.params.id);
-    await appointmentService.updateAppointment(id, req.body ?? {});
-    res.status(204).end();
-  } catch (err) {
-    next(err);
-  }
+    try {
+        const id = Number(req.params.id);
+        const patch = req.body ?? {};
+
+        // Validate at least one known updatable field exists
+        const updatable = ["status", "reason"];
+        const hasUpdate = updatable.some((k) => Object.prototype.hasOwnProperty.call(patch, k));
+        if (!hasUpdate) {
+            return res.status(400).json({ error: "No updatable fields provided" });
+        }
+
+        await appointmentService.updateAppointment(id, patch);
+        res.status(204).end();
+    } catch (err) {
+        next(err);
+    }
 }
+
 
 export async function deleteAppointment(req, res, next) {
   try {

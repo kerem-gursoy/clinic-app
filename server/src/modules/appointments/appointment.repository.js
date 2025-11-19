@@ -47,11 +47,30 @@ export async function insertAppointment({ patientId, providerId, start, end, rea
 }
 
 export async function updateAppointment(id, patch) {
-  const [result] = await pool.execute(
-    "UPDATE appointment SET start_at=?, end_at=?, status=?, reason=? WHERE appointment_id=?",
-    [patch.start, patch.end, patch.status, patch.reason, id]
-  );
-  return result;
+    // Build UPDATE dynamically to avoid sending undefined values to the driver
+    const fields = [];
+    const params = [];
+
+    if (Object.prototype.hasOwnProperty.call(patch, "status")) {
+        fields.push("status = ?");
+        params.push(patch.status);
+    }
+
+    if (Object.prototype.hasOwnProperty.call(patch, "reason")) {
+        // normalize undefined -> null explicitly
+        params.push(patch.reason == null ? null : patch.reason);
+        fields.push("reason = ?");
+    }
+
+    if (fields.length === 0) {
+        // nothing to update
+        return null;
+    }
+    params.push(id); // WHERE param
+
+    const sql = `UPDATE appointment SET ${fields.join(", ")} WHERE appointment_id = ?`;
+    const [result] = await pool.execute(sql, params);
+    return result;
 }
 
 export async function deleteAppointment(id) {
