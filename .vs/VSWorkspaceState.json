@@ -1,0 +1,17 @@
+{
+  "ExpandedNodes": [
+    "",
+    "\\client",
+    "\\client\\app",
+    "\\client\\app\\patient\\appointments",
+    "\\client\\app\\staff\\appointments",
+    "\\client\\components",
+    "\\client\\components\\appointments",
+    "\\server",
+    "\\server\\src",
+    "\\server\\src\\modules",
+    "\\server\\src\\modules\\appointments"
+  ],
+  "SelectedNode": "\\client\\components\\appointments\\cancel-appointment-form.tsx",
+  "PreviewInSolutionExplorer": false
+}
