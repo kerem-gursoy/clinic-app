@@ -16,7 +16,8 @@ import {
   FileText,
   Clock,
   Plus,
-  Stethoscope
+  Stethoscope,
+  PillBottle
 } from "lucide-react"
 import { apiPath } from "@/app/lib/api"
 
@@ -36,10 +37,10 @@ interface PatientDetail {
 
 interface Appointment {
   appointment_id: number
-  appointment_date: string
-  appointment_time: string
+  start_at: string
+  end_at: string
   status: string
-  notes: string | null
+  reason: string | null
 }
 
 export default function PatientDetailPage() {
@@ -159,13 +160,9 @@ export default function PatientDetailPage() {
             <p className="text-muted-foreground">Patient ID: {patient.patient_id}</p>
           </div>
           <div className="flex gap-2">
-            <Button className="rounded-full">
-              <Plus className="h-4 w-4 mr-2" />
-              Book Appointment
-            </Button>
             <Button variant="outline" className="rounded-full">
               <FileText className="h-4 w-4 mr-2" />
-              Medical Records
+              Medications
             </Button>
           </div>
         </div>
@@ -230,21 +227,6 @@ export default function PatientDetailPage() {
             </CardContent>
           </Card>
 
-          {/* Medical History */}
-          {patient.medical_history && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Stethoscope className="h-5 w-5" />
-                  Medical History
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm leading-relaxed">{patient.medical_history}</p>
-              </CardContent>
-            </Card>
-          )}
-
           {/* Recent Appointments */}
           <Card>
             <CardHeader>
@@ -264,10 +246,10 @@ export default function PatientDetailPage() {
                         <div className="w-2 h-2 rounded-full bg-primary"></div>
                         <div>
                           <p className="font-medium text-sm">
-                            {formatDate(appointment.appointment_date)} at {appointment.appointment_time}
+                            {formatDateTime(appointment.start_at)}
                           </p>
-                          {appointment.notes && (
-                            <p className="text-xs text-muted-foreground">{appointment.notes}</p>
+                          {appointment.reason && (
+                            <p className="text-xs text-muted-foreground">{appointment.reason}</p>
                           )}
                         </div>
                       </div>
@@ -278,6 +260,17 @@ export default function PatientDetailPage() {
                   ))}
                 </div>
               )}
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <PillBottle className="h-5 w-5" />
+                Medications
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground text-sm">No current medications available</p>
             </CardContent>
           </Card>
         </div>
@@ -315,6 +308,7 @@ export default function PatientDetailPage() {
             </CardContent>
           </Card>
         </div>
+        
       </div>
     </div>
   )

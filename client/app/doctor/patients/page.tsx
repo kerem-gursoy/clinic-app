@@ -6,17 +6,9 @@ import { useEffect, useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { EmptyState } from "@/components/empty-state"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
-import { Label } from "@/components/ui/label"
-import { Search, User, Phone, Mail, Calendar, Plus } from "lucide-react"
+import { Card, CardContent } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Search, User, Phone, Mail, Calendar, Plus, X, Filter } from "lucide-react"
 import { apiPath } from "@/app/lib/api"
 
 const authUser = JSON.parse(localStorage.getItem("authUser") || "{}");
@@ -24,20 +16,13 @@ const staffId = Number(authUser?.user_id);
 
 interface StaffPatientResponse {
   patient_id: number
-  // server may return either { patient_fname, patient_minit, patient_lname }
-  // (detailed row) OR a simplified { name } field for staff listing endpoints
-  patient_fname?: string
-  patient_lname?: string
-  patient_minit?: string | null
-  name?: string
-  dob?: string | null
-  gender?: string | null
-  phone?: string | null
-  patient_email?: string | null
-  address_id?: number | null
-  balance?: number | null
-  created_at?: string | null
-  prim_doctor?: string | null
+  name: string
+  email: string | null
+  phone: string | null
+  last_visit: string | null
+  date_of_birth?: string | null
+  medications?: string[]
+  allergies?: string[]
 }
 
 interface StaffPatient {
@@ -49,7 +34,29 @@ interface StaffPatient {
   name: string
   email: string
   phone: string
-  dob: string | null
+  lastVisit: string | null
+  dateOfBirth?: string | null
+  medications?: string[]
+  allergies?: string[]
+}
+
+interface FilterOptions {
+  startDate: string
+  endDate: string
+  minAge: string
+  maxAge: string
+  selectedMedications: string[]
+  selectedAllergies: string[]
+}
+
+interface Medication {
+  id: number
+  name: string
+}
+
+interface Allergy {
+  id: number
+  name: string
 }
 
 export default function StaffPatientsPage() {
@@ -58,6 +65,16 @@ export default function StaffPatientsPage() {
   const [flash, setFlash] = useState<{ type: "success" | "error"; text: string } | null>(null)
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
+  const [medications, setMedications] = useState<Medication[]>([])
+  const [allergies, setAllergies] = useState<Allergy[]>([])
+  const [filters, setFilters] = useState<FilterOptions>({
+    startDate: "",
+    endDate: "",
+    minAge: "",
+    maxAge: "",
+    selectedMedications: [],
+    selectedAllergies: []
+  })
 
   useEffect(() => {
     let cancelled = false
@@ -65,7 +82,9 @@ export default function StaffPatientsPage() {
     const fetchPatients = async () => {
       try {
         const token = typeof window !== "undefined" ? window.localStorage.getItem("authToken") : null
-        const res = await fetch(apiPath("/staff/patients"), {
+        
+        // Fetch patients
+        const res = await fetch(apiPath("/doctor/patients"), {
           headers: token ? { Authorization: `Bearer ${token}` } : undefined,
           credentials: "include",
         })
@@ -74,7 +93,33 @@ export default function StaffPatientsPage() {
           throw new Error("Failed to load patients")
         }
         if (cancelled) return
-        setPatients(data.patients.map(mapPatient))
+        setPatients(data.patients.map(mapDoctorPatient))
+        
+        // Fetch medications and allergies for filters
+        try {
+          const [medsRes, allergiesRes] = await Promise.all([
+            fetch(apiPath("/medications"), {
+              headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+              credentials: "include",
+            }),
+            fetch(apiPath("/allergies"), {
+              headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+              credentials: "include",
+            })
+          ])
+          
+          if (medsRes.ok) {
+            const medsData = await medsRes.json()
+            setMedications(medsData.medications || [])
+          }
+          
+          if (allergiesRes.ok) {
+            const allergiesData = await allergiesRes.json()
+            setAllergies(allergiesData.allergies || [])
+          }
+        } catch (filterErr) {
+          console.warn("Failed to load filter data:", filterErr)
+        }
       } catch (err) {
         console.error(err)
         if (!cancelled) {
@@ -93,91 +138,51 @@ export default function StaffPatientsPage() {
     }
   }, [])
 
-  const filteredPatients = useMemo(() => {
-    const q = searchQuery.toLowerCase()
-    return patients.filter((patient) => {
-      const fullName = [patient.patient_fname, patient.patient_minit ? `${patient.patient_minit}.` : "", patient.patient_lname]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase()
-
-      return (
-        fullName.includes(q) ||
-        patient.email.toLowerCase().includes(q) ||
-        patient.phone.includes(searchQuery)
-      )
-    })
-  }, [patients, searchQuery])
-
-  const handleAddPatient = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    const formData = new FormData(e.currentTarget)
-
-    const newPatientData = {
-      patient_fname: formData.get("fname"),
-      patient_lname: formData.get("lname"),
-      patient_minit: formData.get("minit") || null,
-      dob: formData.get("dateOfBirth"),
-      gender: null,
-      phone: formData.get("phone"),
-      address_id: null,
-      balance: 0,
-      created_by: staffId,
-      med_id: null,
-      patient_email: formData.get("email"),
-      prim_doctor: null,
-      password: "secret123",
+  const calculateAge = (dateOfBirth: string | null | undefined): number => {
+    if (!dateOfBirth) return 0
+    const today = new Date()
+    const birth = new Date(dateOfBirth)
+    let age = today.getFullYear() - birth.getFullYear()
+    const monthDiff = today.getMonth() - birth.getMonth()
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+      age--
     }
-
-    try {
-      const token = typeof window !== "undefined" ? window.localStorage.getItem("authToken") : null
-
-      const res = await fetch(apiPath("/patients"), {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify(newPatientData),
-      })
-
-      if (!res.ok) {
-        const errorText = await res.text()
-        throw new Error(`Failed to create patient: ${errorText}`)
-      }
-
-      const result = await res.json()
-
-      const nameParts = [
-        newPatientData.patient_fname,
-        newPatientData.patient_minit ? `${newPatientData.patient_minit}.` : "",
-        newPatientData.patient_lname,
-      ]
-        .filter(Boolean)
-        .join(" ")
-
-      setPatients((prev) => [
-        ...prev,
-        {
-          id: `patient-${result.patientId}`,
-          patientId: result.patientId,
-          patient_fname: newPatientData.patient_fname as string,
-          patient_minit: newPatientData.patient_minit as string,
-          patient_lname: newPatientData.patient_lname as string,
-          name: nameParts,
-          email: newPatientData.patient_email as string,
-          phone: newPatientData.phone as string,
-          dob: newPatientData.dob as string,
-        },
-      ])
-      //e.currentTarget.reset()
-      setIsAddDialogOpen(false)
-      
-    } catch (err) {
-      console.error(err)
-      alert("There was an error creating the patient.")
-    }
+    return age
   }
+
+  const filteredPatients = useMemo(
+    () =>
+      patients.filter((patient) => {
+        // Text search filter
+        const matchesSearch = searchQuery === "" ||
+          patient.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          patient.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          patient.phone.includes(searchQuery)
+        
+        // Age filter
+        const age = calculateAge(patient.dateOfBirth)
+        const matchesAge = (filters.minAge === "" || age >= parseInt(filters.minAge)) &&
+                          (filters.maxAge === "" || age <= parseInt(filters.maxAge))
+        
+        // Appointment date filter (simplified - would need appointment data)
+        const matchesDateRange = true // TODO: Implement when appointment data is available
+        
+        // Medication filter
+        const matchesMedications = filters.selectedMedications.length === 0 ||
+          (patient.medications && filters.selectedMedications.some(med => 
+            patient.medications?.includes(med)
+          ))
+        
+        // Allergy filter
+        const matchesAllergies = filters.selectedAllergies.length === 0 ||
+          (patient.allergies && filters.selectedAllergies.some(allergy => 
+            patient.allergies?.includes(allergy)
+          ))
+        
+        return matchesSearch && matchesAge && matchesDateRange && matchesMedications && matchesAllergies
+      }),
+    [patients, searchQuery, filters],
+  )
 
   return (
     <div className="container max-w-5xl mx-auto py-8 px-4">
@@ -266,7 +271,7 @@ export default function StaffPatientsPage() {
 
       {/* Search */}
       <div className="mb-6">
-        <div className="relative">
+        <div className="relative mb-4">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search by name, email, or phone..."
@@ -275,6 +280,171 @@ export default function StaffPatientsPage() {
             className="pl-9 rounded-full"
           />
         </div>
+        
+        {/* Clear Filters Button */}
+        {(filters.selectedMedications.length > 0 || filters.selectedAllergies.length > 0 || 
+          filters.minAge || filters.maxAge || filters.startDate || filters.endDate) && (
+          <div className="flex justify-end mb-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setFilters({
+                startDate: "",
+                endDate: "",
+                minAge: "",
+                maxAge: "",
+                selectedMedications: [],
+                selectedAllergies: []
+              })}
+              className="flex items-center gap-2 text-muted-foreground"
+            >
+              <X className="h-4 w-4" />
+              Clear Filters
+            </Button>
+          </div>
+        )}
+        
+        {/* Active Filters Display */}
+        {(filters.selectedMedications.length > 0 || filters.selectedAllergies.length > 0 || 
+          filters.minAge || filters.maxAge || filters.startDate || filters.endDate) && (
+          <div className="flex flex-wrap gap-2 mb-4">
+            {filters.selectedMedications.map((med) => (
+              <Badge key={med} variant="secondary" className="flex items-center gap-1">
+                Medication: {med}
+                <X 
+                  className="h-3 w-3 cursor-pointer" 
+                  onClick={() => setFilters(prev => ({
+                    ...prev,
+                    selectedMedications: prev.selectedMedications.filter(m => m !== med)
+                  }))}
+                />
+              </Badge>
+            ))}
+            {filters.selectedAllergies.map((allergy) => (
+              <Badge key={allergy} variant="secondary" className="flex items-center gap-1">
+                Allergy: {allergy}
+                <X 
+                  className="h-3 w-3 cursor-pointer" 
+                  onClick={() => setFilters(prev => ({
+                    ...prev,
+                    selectedAllergies: prev.selectedAllergies.filter(a => a !== allergy)
+                  }))}
+                />
+              </Badge>
+            ))}
+            {(filters.minAge || filters.maxAge) && (
+              <Badge variant="secondary">
+                Age: {filters.minAge || '0'}-{filters.maxAge || '∞'}
+              </Badge>
+            )}
+            {(filters.startDate || filters.endDate) && (
+              <Badge variant="secondary">
+                Appointments: {filters.startDate || 'any'} to {filters.endDate || 'any'}
+              </Badge>
+            )}
+          </div>
+        )}
+        
+        {/* Filter Panel */}
+        <Card className="mb-4">
+          <CardContent className="px-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Filter className="h-5 w-5 text-muted-foreground" />
+              <h3 className="text-base font-medium">Filter by:</h3>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Appointment Date Range */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Appointment Period</label>
+                <div className="space-y-2">
+                  <Input
+                    type="date"
+                    placeholder="Start Date"
+                    value={filters.startDate}
+                    onChange={(e) => setFilters(prev => ({ ...prev, startDate: e.target.value }))}
+                    className="text-sm"
+                  />
+                  <Input
+                    type="date"
+                    placeholder="End Date"
+                    value={filters.endDate}
+                    onChange={(e) => setFilters(prev => ({ ...prev, endDate: e.target.value }))}
+                    className="text-sm"
+                  />
+                </div>
+              </div>
+              
+              {/* Age Range */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Age Range</label>
+                <div className="space-y-2">
+                  <Input
+                    type="number"
+                    placeholder="Min Age"
+                    value={filters.minAge}
+                    onChange={(e) => setFilters(prev => ({ ...prev, minAge: e.target.value }))}
+                    className="text-sm"
+                  />
+                  <Input
+                    type="number"
+                    placeholder="Max Age"
+                    value={filters.maxAge}
+                    onChange={(e) => setFilters(prev => ({ ...prev, maxAge: e.target.value }))}
+                    className="text-sm"
+                  />
+                </div>
+              </div>
+              
+              {/* Medications */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Medications</label>
+                <select
+                  className="w-full p-2 border rounded-md text-sm"
+                  onChange={(e) => {
+                    if (e.target.value && !filters.selectedMedications.includes(e.target.value)) {
+                      setFilters(prev => ({
+                        ...prev,
+                        selectedMedications: [...prev.selectedMedications, e.target.value]
+                      }))
+                    }
+                    e.target.value = ""
+                  }}
+                >
+                  <option value="">Select medication...</option>
+                  {medications.map((med) => (
+                    <option key={med.id} value={med.name}>
+                      {med.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              
+              {/* Allergies */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Allergies</label>
+                <select
+                  className="w-full p-2 border rounded-md text-sm"
+                  onChange={(e) => {
+                    if (e.target.value && !filters.selectedAllergies.includes(e.target.value)) {
+                      setFilters(prev => ({
+                        ...prev,
+                        selectedAllergies: [...prev.selectedAllergies, e.target.value]
+                      }))
+                    }
+                    e.target.value = ""
+                  }}
+                >
+                  <option value="">Select allergy...</option>
+                  {allergies.map((allergy) => (
+                    <option key={allergy.id} value={allergy.name}>
+                      {allergy.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Results */}
@@ -642,37 +812,17 @@ function PatientRow({
   )
 }
 
-function mapPatient(patient: StaffPatientResponse): StaffPatient {
-  // If server did not give separate name fields, try to parse them from the
-  // provided display `name` so we can always render a middle initial with a period.
-  let fname = patient.patient_fname ?? ""
-  let minit = patient.patient_minit ?? null
-  let lname = patient.patient_lname ?? ""
-
-  if (!fname && patient.name) {
-    const parts = String(patient.name).trim().split(/\s+/)
-    if (parts.length === 1) {
-      fname = parts[0]
-      minit = null
-      lname = ""
-    } else if (parts.length === 2) {
-      fname = parts[0]
-      minit = null
-      lname = parts[1]
-    } else {
-      const first = parts[0]
-      const maybeM = parts[1].replace(/\./g, "")
-      const rest = parts.slice(2).join(" ")
-      if (maybeM.length === 1) {
-        fname = first
-        minit = maybeM
-        lname = rest
-      } else {
-        fname = first
-        minit = null
-        lname = parts.slice(1).join(" ")
-      }
-    }
+function mapDoctorPatient(patient: DoctorPatientResponse): DoctorPatient {
+  return {
+    id: `doctor-patient-${patient.patient_id}`,
+    patientId: patient.patient_id,
+    name: patient.name,
+    email: patient.email ?? "N/A",
+    phone: patient.phone ?? "N/A",
+    lastVisit: patient.last_visit ?? null,
+    dateOfBirth: patient.date_of_birth ?? null,
+    medications: patient.medications ?? [],
+    allergies: patient.allergies ?? [],
   }
 
   const displayName = [fname, minit ? `${minit}.` : "", lname].filter(Boolean).join(" ") || (patient.name ?? "")
