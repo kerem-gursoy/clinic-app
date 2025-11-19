@@ -17,7 +17,10 @@ import {
   Clock,
   Plus,
   Stethoscope,
-  PillBottle
+  PillBottle,
+  AlertTriangle,
+  ChevronRight,
+  ChevronDown
 } from "lucide-react"
 import { apiPath } from "@/app/lib/api"
 
@@ -52,6 +55,15 @@ export default function PatientDetailPage() {
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [expandedCards, setExpandedCards] = useState<{
+    appointments: boolean
+    medications: boolean
+    allergies: boolean
+  }>({
+    appointments: false,
+    medications: false,
+    allergies: false
+  })
 
   useEffect(() => {
     const fetchPatientData = async () => {
@@ -142,6 +154,13 @@ export default function PatientDetailPage() {
     }
   }
 
+  const toggleCard = (cardType: 'appointments' | 'medications' | 'allergies') => {
+    setExpandedCards(prev => ({
+      ...prev,
+      [cardType]: !prev[cardType]
+    }))
+  }
+
   return (
     <div className="container max-w-4xl mx-auto py-8 px-4">
       {/* Header */}
@@ -159,18 +178,13 @@ export default function PatientDetailPage() {
             <h1 className="text-3xl font-bold mb-2">{patient.name}</h1>
             <p className="text-muted-foreground">Patient ID: {patient.patient_id}</p>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" className="rounded-full">
-              <FileText className="h-4 w-4 mr-2" />
-              Medications
-            </Button>
-          </div>
+
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="space-y-6">
         {/* Patient Information */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="space-y-6">
           {/* Basic Information */}
           <Card>
             <CardHeader>
@@ -204,12 +218,10 @@ export default function PatientDetailPage() {
                     <span className="font-medium">Gender:</span>
                     <span>{patient.gender || "N/A"}</span>
                   </div>
-                  <div className="flex items-start gap-2 text-sm">
-                    <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
-                    <div>
-                      <span className="font-medium">Address:</span>
-                      <p className="text-muted-foreground">{patient.address || "N/A"}</p>
-                    </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                    <span className="font-medium">Patient Since:</span>
+                    <span>{formatDate(patient.created_at)}</span>
                   </div>
                 </div>
               </div>
@@ -230,85 +242,104 @@ export default function PatientDetailPage() {
           {/* Recent Appointments */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Calendar className="h-5 w-5" />
-                Recent Appointments
+              <CardTitle className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-5 w-5" />
+                  Recent Appointments
+                </div>
+                <button 
+                  onClick={() => toggleCard('appointments')}
+                  className="p-1 hover:bg-muted rounded-sm transition-colors"
+                >
+                  {expandedCards.appointments ? (
+                    <ChevronDown className="h-4 w-4" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4" />
+                  )}
+                </button>
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              {appointments.length === 0 ? (
-                <p className="text-muted-foreground text-sm">No appointments found</p>
-              ) : (
-                <div className="space-y-3">
-                  {appointments.slice(0, 5).map((appointment) => (
-                    <div key={appointment.appointment_id} className="flex items-center justify-between p-3 border rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <div className="w-2 h-2 rounded-full bg-primary"></div>
-                        <div>
-                          <p className="font-medium text-sm">
-                            {formatDateTime(appointment.start_at)}
-                          </p>
-                          {appointment.reason && (
-                            <p className="text-xs text-muted-foreground">{appointment.reason}</p>
-                          )}
+            {expandedCards.appointments && (
+              <CardContent>
+                {appointments.length === 0 ? (
+                  <p className="text-muted-foreground text-sm">No appointments found</p>
+                ) : (
+                  <div className="space-y-3">
+                    {appointments.slice(0, 5).map((appointment) => (
+                      <div key={appointment.appointment_id} className="flex items-center justify-between p-3 border rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <div className="w-2 h-2 rounded-full bg-primary"></div>
+                          <div>
+                            <p className="font-medium text-sm">
+                              {formatDateTime(appointment.start_at)}
+                            </p>
+                            {appointment.reason && (
+                              <p className="text-xs text-muted-foreground">{appointment.reason}</p>
+                            )}
+                          </div>
                         </div>
+                        <Badge className={getStatusColor(appointment.status)}>
+                          {appointment.status}
+                        </Badge>
                       </div>
-                      <Badge className={getStatusColor(appointment.status)}>
-                        {appointment.status}
-                      </Badge>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            )}
           </Card>
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <PillBottle className="h-5 w-5" />
-                Medications
+              <CardTitle className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <PillBottle className="h-5 w-5" />
+                  Medications
+                </div>
+                <button 
+                  onClick={() => toggleCard('medications')}
+                  className="p-1 hover:bg-muted rounded-sm transition-colors"
+                >
+                  {expandedCards.medications ? (
+                    <ChevronDown className="h-4 w-4" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4" />
+                  )}
+                </button>
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground text-sm">No current medications available</p>
-            </CardContent>
+            {expandedCards.medications && (
+              <CardContent>
+                <p className="text-muted-foreground text-sm">No current medications available</p>
+              </CardContent>
+            )}
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="h-5 w-5" />
+                  Allergies
+                </div>
+                <button 
+                  onClick={() => toggleCard('allergies')}
+                  className="p-1 hover:bg-muted rounded-sm transition-colors"
+                >
+                  {expandedCards.allergies ? (
+                    <ChevronDown className="h-4 w-4" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4" />
+                  )}
+                </button>
+              </CardTitle>
+            </CardHeader>
+            {expandedCards.allergies && (
+              <CardContent>
+                <p className="text-muted-foreground text-sm">No known allergies</p>
+              </CardContent>
+            )}
           </Card>
         </div>
 
-        {/* Quick Stats */}
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Quick Info</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center gap-2 text-sm">
-                <Clock className="h-4 w-4 text-muted-foreground" />
-                <div>
-                  <p className="font-medium">Last Visit</p>
-                  <p className="text-muted-foreground">{formatDateTime(patient.last_visit)}</p>
-                </div>
-              </div>
-              <Separator />
-              <div className="flex items-center gap-2 text-sm">
-                <User className="h-4 w-4 text-muted-foreground" />
-                <div>
-                  <p className="font-medium">Patient Since</p>
-                  <p className="text-muted-foreground">{formatDate(patient.created_at)}</p>
-                </div>
-              </div>
-              <Separator />
-              <div className="flex items-center gap-2 text-sm">
-                <Calendar className="h-4 w-4 text-muted-foreground" />
-                <div>
-                  <p className="font-medium">Total Appointments</p>
-                  <p className="text-muted-foreground">{appointments.length}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-        
       </div>
     </div>
   )
