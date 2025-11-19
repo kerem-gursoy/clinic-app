@@ -7,15 +7,17 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
+import { DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { getStoredAuthUser } from "@/lib/auth"
 import { apiPath } from "@/app/lib/api"
 
 interface NewAppointmentFormProps {
   onCancel?: () => void
   onSuccess?: () => void
+  onNotify?: (text: string, type?: "success" | "error") => void
 }
 
-export function NewAppointmentForm({ onCancel, onSuccess }: NewAppointmentFormProps) {
+export function NewAppointmentForm({ onCancel, onSuccess, onNotify }: NewAppointmentFormProps) {
   const router = useRouter()
   const [currentUser, setCurrentUser] = useState<any>(null)
   const [patientId, setPatientId] = useState<string>("")
@@ -197,10 +199,19 @@ export function NewAppointmentForm({ onCancel, onSuccess }: NewAppointmentFormPr
       } catch {
         // ignore storage errors
       }
+      // Notify parent/page that the appointment was created so a flash message can show
+      if (onNotify) {
+        onNotify("Appointment successfully created", "success")
+      }
       handleSuccess()
     } catch (err) {
       console.error(err)
-      alert((err as any)?.message ?? "Failed to create appointment")
+      const message = (err as any)?.message ?? "Failed to create appointment"
+      if (onNotify) {
+        onNotify(message, "error")
+      } else {
+        alert(message)
+      }
     } finally {
       setIsSubmitting(false)
     }
@@ -209,10 +220,10 @@ export function NewAppointmentForm({ onCancel, onSuccess }: NewAppointmentFormPr
   return (
     <div className="space-y-6">
       <div className="border-b pb-4">
-        <h2 className="text-2xl font-semibold">Schedule New Appointment</h2>
-        <p className="text-sm text-muted-foreground">
+        <DialogTitle className="text-2xl font-semibold">Schedule New Appointment</DialogTitle>
+        <DialogDescription className="text-sm text-muted-foreground">
           Choose the patient, provider, and timing without leaving your current context.
-        </p>
+        </DialogDescription>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">

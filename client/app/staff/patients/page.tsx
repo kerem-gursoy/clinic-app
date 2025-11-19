@@ -24,9 +24,12 @@ const staffId = Number(authUser?.user_id);
 
 interface StaffPatientResponse {
   patient_id: number
-  patient_fname: string
-  patient_lname: string
+  // server may return either { patient_fname, patient_minit, patient_lname }
+  // (detailed row) OR a simplified { name } field for staff listing endpoints
+  patient_fname?: string
+  patient_lname?: string
   patient_minit?: string | null
+  name?: string
   dob?: string | null
   gender?: string | null
   phone?: string | null
@@ -40,6 +43,9 @@ interface StaffPatientResponse {
 interface StaffPatient {
   id: string
   patientId: number
+  patient_fname: string
+  patient_minit?: string | null
+  patient_lname: string
   name: string
   email: string
   phone: string
@@ -49,6 +55,7 @@ interface StaffPatient {
 export default function StaffPatientsPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [patients, setPatients] = useState<StaffPatient[]>([])
+  const [flash, setFlash] = useState<{ type: "success" | "error"; text: string } | null>(null)
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
 
@@ -86,16 +93,21 @@ export default function StaffPatientsPage() {
     }
   }, [])
 
-  const filteredPatients = useMemo(
-    () =>
-      patients.filter(
-        (patient) =>
-          patient.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          patient.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          patient.phone.includes(searchQuery),
-      ),
-    [patients, searchQuery],
-  )
+  const filteredPatients = useMemo(() => {
+    const q = searchQuery.toLowerCase()
+    return patients.filter((patient) => {
+      const fullName = [patient.patient_fname, patient.patient_minit ? `${patient.patient_minit}.` : "", patient.patient_lname]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+
+      return (
+        fullName.includes(q) ||
+        patient.email.toLowerCase().includes(q) ||
+        patient.phone.includes(searchQuery)
+      )
+    })
+  }, [patients, searchQuery])
 
   const handleAddPatient = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -149,13 +161,13 @@ export default function StaffPatientsPage() {
         {
           id: `patient-${result.patientId}`,
           patientId: result.patientId,
-          fname: newPatientData.patient_fname as string,
-          lname: newPatientData.patient_lname as string,
-          minit: newPatientData.patient_minit as string,
+          patient_fname: newPatientData.patient_fname as string,
+          patient_minit: newPatientData.patient_minit as string,
+          patient_lname: newPatientData.patient_lname as string,
+          name: nameParts,
           email: newPatientData.patient_email as string,
           phone: newPatientData.phone as string,
           dob: newPatientData.dob as string,
-          name: nameParts,
         },
       ])
       //e.currentTarget.reset()
@@ -169,6 +181,28 @@ export default function StaffPatientsPage() {
 
   return (
     <div className="container max-w-5xl mx-auto py-8 px-4">
+      {/* Flash message (fixed, above dialogs) */}
+      {flash ? (
+        <div className="fixed inset-x-0 top-4 z-[60] flex justify-center pointer-events-none px-4">
+          <div
+            role="status"
+            className={`pointer-events-auto w-full max-w-3xl rounded-md p-3 border ${
+              flash.type === "success" ? "bg-green-50 border-green-200 text-green-800" : "bg-red-50 border-red-200 text-red-800"
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <div>{flash.text}</div>
+              <button
+                aria-label="dismiss"
+                onClick={() => setFlash(null)}
+                className="ml-4 text-sm opacity-80 hover:opacity-100"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
       {/* Header */}
       <div className="mb-6 flex items-start justify-between">
         <div>
@@ -265,7 +299,18 @@ export default function StaffPatientsPage() {
       ) : (
         <div className="bg-card rounded-xl border divide-y">
           {filteredPatients.map((patient) => (
-            <PatientRow key={patient.id} patient={patient} />
+            <PatientRow
+              key={patient.id}
+              patient={patient}
+              onUpdate={(updated) =>
+                setPatients((prev) => prev.map((p) => (p.patientId === updated.patientId ? updated : p)))
+              }
+              onDelete={(id: number) => setPatients((prev) => prev.filter((p) => p.patientId !== id))}
+              onNotify={(text: string, type: "success" | "error" = "success") => {
+                setFlash({ text, type })
+                window.setTimeout(() => setFlash(null), 4000)
+              }}
+            />
           ))}
         </div>
       )}
@@ -273,11 +318,165 @@ export default function StaffPatientsPage() {
   )
 }
 
-function PatientRow({ patient }: { patient: StaffPatient }) {
+function PatientRow({
+  patient,
+  onUpdate,
+  onDelete,
+  onNotify,
+}: {
+  patient: StaffPatient
+  onUpdate: (p: StaffPatient) => void
+  onDelete: (id: number) => void
+  onNotify?: (text: string, type?: "success" | "error") => void
+}) {
   const age =
     patient.dob && !Number.isNaN(new Date(patient.dob).getTime())
       ? new Date().getFullYear() - new Date(patient.dob).getFullYear()
       : null
+
+  const [open, setOpen] = useState(false)
+  const [firstName, setFirstName] = useState(patient.patient_fname)
+  const [middleInitial, setMiddleInitial] = useState(patient.patient_minit ?? "")
+  const [lastName, setLastName] = useState(patient.patient_lname)
+  const [email, setEmail] = useState(patient.email)
+  const [phone, setPhone] = useState(patient.phone)
+  const [dob, setDob] = useState(patient.dob ?? "")
+  const [isSaving, setIsSaving] = useState(false)
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
+
+  // Keep local state in sync if parent changes the patient
+  useEffect(() => {
+    // Prefer explicit fname/minit/lname if available, otherwise parse the display name
+    if (patient.patient_fname) {
+      setFirstName(patient.patient_fname)
+      setMiddleInitial(patient.patient_minit ?? "")
+      setLastName(patient.patient_lname)
+    } else if (patient.name) {
+      const parts = String(patient.name).trim().split(/\s+/)
+      if (parts.length === 1) {
+        setFirstName(parts[0])
+        setMiddleInitial("")
+        setLastName("")
+      } else if (parts.length === 2) {
+        setFirstName(parts[0])
+        setMiddleInitial("")
+        setLastName(parts[1])
+      } else {
+        // e.g. [First, M, Last...]
+        const first = parts[0]
+        const maybeM = parts[1].replace(/\./g, "")
+        const rest = parts.slice(2).join(" ")
+        if (maybeM.length === 1) {
+          setFirstName(first)
+          setMiddleInitial(maybeM)
+          setLastName(rest)
+        } else {
+          // treat middle as part of last name
+          setFirstName(first)
+          setMiddleInitial("")
+          setLastName(parts.slice(1).join(" "))
+        }
+      }
+    } else {
+      setFirstName("")
+      setMiddleInitial("")
+      setLastName("")
+    }
+    setEmail(patient.email)
+    setPhone(patient.phone)
+    setDob(patient.dob ?? "")
+  }, [patient])
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    setIsSaving(true)
+
+    try {
+      const payload: any = {
+        patient_fname: firstName,
+        patient_minit: middleInitial || null,
+        patient_lname: lastName,
+        patient_email: email,
+        phone,
+        dob: dob || null,
+      }
+
+      const token = typeof window !== "undefined" ? window.localStorage.getItem("authToken") : null
+
+      const res = await fetch(apiPath(`/patients/${patient.patientId}`), {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify(payload),
+      })
+
+      if (!res.ok) {
+        const errText = await res.text()
+        throw new Error(errText || "Failed to update patient")
+      }
+
+      // Update local parent state with our edited values
+      const displayName = [payload.patient_fname, payload.patient_minit ? `${payload.patient_minit}.` : "", payload.patient_lname]
+        .filter(Boolean)
+        .join(" ")
+
+      const updated: StaffPatient = {
+        id: patient.id,
+        patientId: patient.patientId,
+        patient_fname: payload.patient_fname,
+        patient_minit: payload.patient_minit,
+        patient_lname: payload.patient_lname,
+        name: displayName,
+        email,
+        phone,
+        dob: dob || null,
+      }
+
+      onUpdate(updated)
+      setOpen(false)
+    } catch (err) {
+      console.error(err)
+      alert("There was an error updating the patient.")
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleDelete = async () => {
+    // trigger in-app confirmation UI instead of browser confirm()
+    setConfirmingDelete(true)
+  }
+
+  const performDelete = async () => {
+    setIsSaving(true)
+    try {
+      const token = typeof window !== "undefined" ? window.localStorage.getItem("authToken") : null
+      const res = await fetch(apiPath(`/patients/${patient.patientId}`), {
+        method: "DELETE",
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      })
+
+      if (!res.ok) {
+        const errText = await res.text()
+        throw new Error(errText || "Failed to delete patient")
+      }
+
+      // Notify parent to remove the patient from the list
+      onDelete(patient.patientId)
+      onNotify?.("Patient deleted", "success")
+      setOpen(false)
+      setConfirmingDelete(false)
+    } catch (err) {
+      console.error(err)
+      onNotify?.("There was an error deleting the patient.", "error")
+    } finally {
+      setIsSaving(false)
+    }
+  }
 
   return (
     <div className="p-4 hover:bg-muted/50 transition-colors">
@@ -290,7 +489,16 @@ function PatientRow({ patient }: { patient: StaffPatient }) {
 
           {/* Patient Info */}
           <div className="flex-1 min-w-0">
-            <h3 className="font-semibold mb-1">{patient.name}</h3>
+            {/* Build display name using explicit name parts so middle initial shows with a period */}
+            {(() => {
+              const parts = [
+                patient.patient_fname,
+                patient.patient_minit ? `${patient.patient_minit}.` : "",
+                patient.patient_lname,
+              ].filter(Boolean)
+              const displayName = parts.join(" ") || patient.name
+              return <h3 className="font-semibold mb-1">{displayName}</h3>
+            })()}
 
             <div className="flex flex-col gap-1 text-sm text-muted-foreground">
               <div className="flex items-center gap-1.5">
@@ -320,9 +528,114 @@ function PatientRow({ patient }: { patient: StaffPatient }) {
             <Plus className="h-4 w-4 mr-1" />
             Book
           </Button>
-          <Button variant="ghost" size="sm">
-            Edit
-          </Button>
+
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button variant="ghost" size="sm">
+                Edit
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[480px]">
+              <form onSubmit={handleSubmit}>
+                <DialogHeader>
+                  <DialogTitle>Edit Patient</DialogTitle>
+                  <div className="text-sm text-muted-foreground">Update patient details and save.</div>
+                </DialogHeader>
+
+                <div className="grid gap-4 py-4">
+                  <div className="grid gap-2">
+                    <div className="grid grid-cols-3 gap-2">
+                      <div>
+                        <Label htmlFor={`fname-${patient.patientId}`}>First</Label>
+                        <Input
+                          id={`fname-${patient.patientId}`}
+                          value={firstName}
+                          onChange={(e) => setFirstName(e.target.value)}
+                          required
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor={`minit-${patient.patientId}`}>M.I.</Label>
+                        <Input
+                          id={`minit-${patient.patientId}`}
+                          maxLength={1}
+                          value={middleInitial}
+                          onChange={(e) => setMiddleInitial(e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor={`lname-${patient.patientId}`}>Last</Label>
+                        <Input
+                          id={`lname-${patient.patientId}`}
+                          value={lastName}
+                          onChange={(e) => setLastName(e.target.value)}
+                          required
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-2">
+                    <Label htmlFor={`dob-${patient.patientId}`}>Date of Birth</Label>
+                    <Input
+                      id={`dob-${patient.patientId}`}
+                      type="date"
+                      value={dob ?? ""}
+                      onChange={(e) => setDob(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="grid gap-2">
+                    <Label htmlFor={`email-${patient.patientId}`}>Email</Label>
+                    <Input
+                      id={`email-${patient.patientId}`}
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                    />
+                  </div>
+
+                  <div className="grid gap-2">
+                    <Label htmlFor={`phone-${patient.patientId}`}>Phone</Label>
+                    <Input
+                      id={`phone-${patient.patientId}`}
+                      type="tel"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <DialogFooter>
+                  {confirmingDelete ? (
+                    <div className="flex items-center gap-2">
+                      <div className="text-sm text-muted-foreground mr-4">Are you sure you want to delete this patient?</div>
+                      <Button type="button" variant="outline" onClick={() => setConfirmingDelete(false)} disabled={isSaving}>
+                        Cancel
+                      </Button>
+                      <Button type="button" variant="destructive" onClick={performDelete} disabled={isSaving}>
+                        {isSaving ? "Deleting..." : "Confirm Delete"}
+                      </Button>
+                    </div>
+                  ) : (
+                    <>
+                      <Button type="button" variant="destructive" onClick={handleDelete} disabled={isSaving}>
+                        Delete
+                      </Button>
+                      <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+                        Cancel
+                      </Button>
+                      <Button type="submit" disabled={isSaving}>
+                        {isSaving ? "Saving..." : "Save"}
+                      </Button>
+                    </>
+                  )}
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
     </div>
@@ -330,11 +643,48 @@ function PatientRow({ patient }: { patient: StaffPatient }) {
 }
 
 function mapPatient(patient: StaffPatientResponse): StaffPatient {
+  // If server did not give separate name fields, try to parse them from the
+  // provided display `name` so we can always render a middle initial with a period.
+  let fname = patient.patient_fname ?? ""
+  let minit = patient.patient_minit ?? null
+  let lname = patient.patient_lname ?? ""
+
+  if (!fname && patient.name) {
+    const parts = String(patient.name).trim().split(/\s+/)
+    if (parts.length === 1) {
+      fname = parts[0]
+      minit = null
+      lname = ""
+    } else if (parts.length === 2) {
+      fname = parts[0]
+      minit = null
+      lname = parts[1]
+    } else {
+      const first = parts[0]
+      const maybeM = parts[1].replace(/\./g, "")
+      const rest = parts.slice(2).join(" ")
+      if (maybeM.length === 1) {
+        fname = first
+        minit = maybeM
+        lname = rest
+      } else {
+        fname = first
+        minit = null
+        lname = parts.slice(1).join(" ")
+      }
+    }
+  }
+
+  const displayName = [fname, minit ? `${minit}.` : "", lname].filter(Boolean).join(" ") || (patient.name ?? "")
+
   return {
     id: `patient-${patient.patient_id}`,
     patientId: patient.patient_id,
-    name: patient.name,
-    email: patient.email ?? "N/A",
+    patient_fname: fname,
+    patient_minit: minit,
+    patient_lname: lname,
+    name: displayName,
+    email: patient.patient_email ?? (patient as any).email ?? "N/A",
     phone: patient.phone ?? "N/A",
     dob: patient.dob ?? null,
   }
