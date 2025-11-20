@@ -1,12 +1,16 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import { Button } from "@/components/ui/button";
 import { StatusChip } from "@/components/status-chip";
 import { EmptyState } from "@/components/empty-state";
+import { Dialog, DialogContent } from "@/components/ui/dialog"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Calendar, Clock, User, Filter } from "lucide-react";
 import type { AppointmentStatus } from "@/lib/types";
+import { cn } from "@/lib/utils"
 import { apiPath } from "@/app/lib/api";
+import { CancelAppointmentForm } from "@/components/appointments/cancel-appointment-form"
 
 interface PatientAppointmentResponse {
   appointment_id: number;
@@ -27,6 +31,7 @@ interface PatientAppointment {
   reason: string;
   status: AppointmentStatus;
   start_at: string | null;
+  date: string; // yyyy-mm-dd
   displayTime: string;
   duration: number;
   notes?: string | null;
@@ -66,7 +71,7 @@ export default function PatientAppointmentsPage() {
   }, []);
 
   // Filter appointments for current patient (p1)
-const filteredAppointments =
+  const filteredAppointments =
     selectedStatus === "all"
       ? appointments
       : appointments.filter((apt) => apt.status === selectedStatus);
@@ -163,24 +168,27 @@ const filteredAppointments =
 }
 
 function AppointmentRow({ appointment }: { appointment: PatientAppointment }) {
-  const appointmentDate = new Date(appointment.start_at)
+  const appointmentDate = appointment.start_at ? new Date(appointment.start_at) : new Date()
+  const [isOpen, setIsOpen] = useState(false)
   const formattedDate = appointmentDate.toLocaleDateString("en-US", {
     weekday: "short",
     month: "short",
     day: "numeric",
     year: "numeric",
   })
+  const formattedTime = appointment.displayTime
+  const [showCancelForm, setShowCancelForm] = useState(false)
 
   return (
-    <div className="p-4 hover:bg-muted/50 transition-colors cursor-pointer">
+    <div className="p-4 hover:bg-muted/50 transition-colors">
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-3 mb-2">
-                  <StatusChip status={appointment.status} />
-                  <span className="text-sm text-muted-foreground">{formattedDate}</span>
-                </div>
+          <div className="flex items-center gap-3 mb-2">
+            <StatusChip status={appointment.status} />
+            <span className="text-sm text-muted-foreground">{formattedDate}</span>
+          </div>
 
-                <h3 className="font-semibold mb-1">{appointment.reason}</h3>
+          <h3 className="font-semibold mb-1">{appointment.reason}</h3>
 
           <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-sm text-muted-foreground">
             <div className="flex items-center gap-1.5">
@@ -189,19 +197,85 @@ function AppointmentRow({ appointment }: { appointment: PatientAppointment }) {
             </div>
             <div className="flex items-center gap-1.5">
               <Clock className="h-4 w-4" />
-                    <span>
-                      {appointment.displayTime} ({appointment.duration} min)
+              <span>
+                {formattedTime} ({appointment.duration} min)
               </span>
             </div>
           </div>
 
-                {appointment.notes && <p className="text-sm text-muted-foreground mt-2">{appointment.notes}</p>}
+          {appointment.notes && <p className="text-sm text-muted-foreground mt-2">{appointment.notes}</p>}
         </div>
 
-        <Button variant="ghost" size="sm">
+        <Button variant="ghost" size="sm" onClick={() => setIsOpen(true)}>
           View
         </Button>
       </div>
+
+      <Dialog open={isOpen} onOpenChange={setIsOpen}>
+        <DialogContent className="max-w-md">
+          <div className="space-y-4">
+            <div>
+              <p className="text-sm text-muted-foreground">Appointment for</p>
+              <h3 className="text-xl font-semibold">{appointment.reason}</h3>
+              <p className="text-sm text-muted-foreground">with {appointment.providerName}</p>
+            </div>
+
+            <div className="space-y-2 text-sm">
+              <div className="flex items-start justify-between gap-4 text-sm">
+                <span className="text-muted-foreground">Status</span>
+                <span className="text-right font-medium"><StatusChip status={appointment.status} /></span>
+              </div>
+              <div className="flex items-start justify-between gap-4 text-sm">
+                <span className="text-muted-foreground">Date</span>
+                <span className="text-right font-medium">{formattedDate}</span>
+              </div>
+              <div className="flex items-start justify-between gap-4 text-sm">
+                <span className="text-muted-foreground">Time</span>
+                <span className="text-right font-medium">{formattedTime} ({appointment.duration} min)</span>
+              </div>
+              <div className="flex items-start justify-between gap-4 text-sm">
+                <span className="text-muted-foreground">Reason</span>
+                <span className="text-right font-medium">{appointment.reason}</span>
+              </div>
+              {appointment.notes && (
+                <div className="flex items-start justify-between gap-4 text-sm">
+                  <span className="text-muted-foreground">Notes</span>
+                  <span className="text-right font-medium">{appointment.notes}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-2">
+              {appointment.status === "scheduled" && (
+                <>
+                  <Button variant="outline" onClick={() => setShowCancelForm(true)}>
+                    Cancel Appointment
+                  </Button>
+
+                  <Dialog open={showCancelForm} onOpenChange={setShowCancelForm}>
+                    <DialogContent>
+                      <CancelAppointmentForm
+                        appointmentId={appointment.appointment_id}
+                        onSuccess={() => {
+                          setShowCancelForm(false)
+                          setIsOpen(false)
+                          // reload to reflect changed appointments list
+                          if (typeof window !== "undefined") window.location.reload()
+                        }}
+                        onCancel={() => setShowCancelForm(false)}
+                      />
+                    </DialogContent>
+                  </Dialog>
+                </>
+              )}
+
+              <Button variant="outline" onClick={() => setIsOpen(false)}>
+                Close
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
@@ -213,6 +287,7 @@ function mapPatientAppointment(appt: PatientAppointmentResponse): PatientAppoint
     reason: appt.reason ?? "General visit",
     status: normalizeStatus(appt.status),
     start_at: appt.start_at,
+    date: formatDateKey(appt.start_at),
     displayTime: formatTime(appt.start_at),
     duration: appt.duration ?? 0,
     notes: appt.notes ?? null,
@@ -249,4 +324,14 @@ function formatTime(startAt: string | null | undefined): string {
   const hours = date.getHours().toString().padStart(2, "0");
   const minutes = date.getMinutes().toString().padStart(2, "0");
   return `${hours}:${minutes}`;
+}
+
+function formatDateKey(dateStr: string | null | undefined): string {
+  if (!dateStr) return "";
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return "";
+  const year = d.getFullYear()
+  const month = (d.getMonth() + 1).toString().padStart(2, "0")
+  const day = d.getDate().toString().padStart(2, "0")
+  return `${year}-${month}-${day}`
 }
