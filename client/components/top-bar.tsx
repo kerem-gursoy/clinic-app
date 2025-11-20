@@ -38,6 +38,7 @@ const roleConfig = {
       { label: "Agenda", href: "/staff/appointments" },
       { label: "Patients", href: "/staff/patients" },
       { label: "Doctors", href: "/staff/doctors" },
+      { label: "Report", href: "/admin/reports/appointments" },
     ],
   },
 }

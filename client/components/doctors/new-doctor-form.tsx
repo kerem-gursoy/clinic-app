@@ -11,6 +11,7 @@ import { Trash2 } from "lucide-react"
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select"
 
 interface NewDoctorFormProps {
+  doctorId?: number
   onCancel?: () => void
   onSuccess?: () => void
   doctorId?: number
