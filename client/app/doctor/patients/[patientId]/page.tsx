@@ -46,6 +46,35 @@ interface Appointment {
   reason: string | null
 }
 
+interface Medication {
+  medication_id: number
+  medication_name: string
+  dosage: string | null
+  frequency: string | null
+  start_date: string | null
+  end_date: string | null
+  prescribed_by: number | null
+  status: string | null
+}
+
+interface Allergy {
+  allergy_id: number
+  allergy_name: string
+  severity: string | null
+  reaction: string | null
+  notes: string | null
+}
+
+interface MedicalHistoryRecord {
+  history_id: number
+  condition: string
+  diagnosis_date: string | null
+  treatment: string | null
+  notes: string | null
+  doctor_id: number | null
+  created_at: string
+}
+
 export default function PatientDetailPage() {
   const params = useParams()
   const router = useRouter()
@@ -53,16 +82,21 @@ export default function PatientDetailPage() {
   
   const [patient, setPatient] = useState<PatientDetail | null>(null)
   const [appointments, setAppointments] = useState<Appointment[]>([])
+  const [medications, setMedications] = useState<Medication[]>([])
+  const [allergies, setAllergies] = useState<Allergy[]>([])
+  const [medicalHistory, setMedicalHistory] = useState<MedicalHistoryRecord[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [expandedCards, setExpandedCards] = useState<{
     appointments: boolean
     medications: boolean
     allergies: boolean
+    notes: boolean
   }>({
     appointments: false,
     medications: false,
-    allergies: false
+    allergies: false,
+    notes: false
   })
 
   useEffect(() => {
@@ -93,9 +127,41 @@ export default function PatientDetailPage() {
           const appointmentsData = await appointmentsRes.json()
           setAppointments(appointmentsData.appointments || [])
         }
+
+        // Fetch patient medications
+        const medicationsRes = await fetch(apiPath(`/doctor/patients/${patientId}/medications`), {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+          credentials: "include",
+        })
+        
+        if (medicationsRes.ok) {
+          const medicationsData = await medicationsRes.json()
+          setMedications(medicationsData.medications || [])
+        }
+
+        // Fetch patient allergies
+        const allergiesRes = await fetch(apiPath(`/doctor/patients/${patientId}/allergies`), {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+          credentials: "include",
+        })
+        
+        if (allergiesRes.ok) {
+          const allergiesData = await allergiesRes.json()
+          setAllergies(allergiesData.allergies || [])
+        }
+
+        // Fetch patient medical history
+        const medicalHistoryRes = await fetch(apiPath(`/doctor/patients/${patientId}/medical-history`), {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+          credentials: "include",
+        })
+        
+        if (medicalHistoryRes.ok) {
+          const medicalHistoryData = await medicalHistoryRes.json()
+          setMedicalHistory(medicalHistoryData.medicalHistory || [])
+        }
         
       } catch (err) {
-        console.error(err)
         setError(err instanceof Error ? err.message : "An error occurred")
       } finally {
         setIsLoading(false)
@@ -154,7 +220,21 @@ export default function PatientDetailPage() {
     }
   }
 
-  const toggleCard = (cardType: 'appointments' | 'medications' | 'allergies') => {
+  const getGenderDisplay = (gender: string | null) => {
+    if (!gender) return "N/A"
+    switch (gender.toString()) {
+      case "1":
+        return "Male"
+      case "2":
+        return "Female"
+      case "3":
+        return "Other"
+      default:
+        return gender
+    }
+  }
+
+  const toggleCard = (cardType: 'appointments' | 'medications' | 'allergies' | 'notes') => {
     setExpandedCards(prev => ({
       ...prev,
       [cardType]: !prev[cardType]
@@ -216,13 +296,20 @@ export default function PatientDetailPage() {
                   <div className="flex items-center gap-2 text-sm">
                     <User className="h-4 w-4 text-muted-foreground" />
                     <span className="font-medium">Gender:</span>
-                    <span>{patient.gender || "N/A"}</span>
+                    <span>{getGenderDisplay(patient.gender)}</span>
                   </div>
                   <div className="flex items-center gap-2 text-sm">
                     <Calendar className="h-4 w-4 text-muted-foreground" />
                     <span className="font-medium">Patient Since:</span>
                     <span>{formatDate(patient.created_at)}</span>
                   </div>
+                  {patient.address && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <MapPin className="h-4 w-4 text-muted-foreground" />
+                      <span className="font-medium">Address:</span>
+                      <span>{patient.address}</span>
+                    </div>
+                  )}
                 </div>
               </div>
               
@@ -309,7 +396,38 @@ export default function PatientDetailPage() {
             </CardHeader>
             {expandedCards.medications && (
               <CardContent>
-                <p className="text-muted-foreground text-sm">No current medications available</p>
+                {medications.length === 0 ? (
+                  <p className="text-muted-foreground text-sm">No current medications</p>
+                ) : (
+                  <div className="space-y-3">
+                    {medications.map((medication) => (
+                      <div key={medication.medication_id} className="p-3 border rounded-lg">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <p className="font-medium text-sm">{medication.medication_name}</p>
+                            {medication.dosage && (
+                              <p className="text-xs text-muted-foreground mt-1">Dosage: {medication.dosage}</p>
+                            )}
+                            {medication.frequency && (
+                              <p className="text-xs text-muted-foreground">Frequency: {medication.frequency}</p>
+                            )}
+                            {medication.start_date && (
+                              <p className="text-xs text-muted-foreground">
+                                Start: {formatDate(medication.start_date)}
+                                {medication.end_date && ` - End: ${formatDate(medication.end_date)}`}
+                              </p>
+                            )}
+                          </div>
+                          {medication.status && (
+                            <Badge className={medication.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}>
+                              {medication.status}
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             )}
           </Card>
@@ -334,7 +452,85 @@ export default function PatientDetailPage() {
             </CardHeader>
             {expandedCards.allergies && (
               <CardContent>
-                <p className="text-muted-foreground text-sm">No known allergies</p>
+                {allergies.length === 0 ? (
+                  <p className="text-muted-foreground text-sm">No known allergies</p>
+                ) : (
+                  <div className="space-y-3">
+                    {allergies.map((allergy) => (
+                      <div key={allergy.allergy_id} className="p-3 border rounded-lg">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <p className="font-medium text-sm">{allergy.allergy_name}</p>
+                            {allergy.reaction && (
+                              <p className="text-xs text-muted-foreground mt-1">Reaction: {allergy.reaction}</p>
+                            )}
+                            {allergy.notes && (
+                              <p className="text-xs text-muted-foreground">Notes: {allergy.notes}</p>
+                            )}
+                          </div>
+                          {allergy.severity && (
+                            <Badge className={
+                              allergy.severity.toLowerCase() === 'severe' ? 'bg-red-100 text-red-800' :
+                              allergy.severity.toLowerCase() === 'moderate' ? 'bg-yellow-100 text-yellow-800' :
+                              'bg-green-100 text-green-800'
+                            }>
+                              {allergy.severity}
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            )}
+          </Card>
+          
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  Notes
+                </div>
+                <button 
+                  onClick={() => toggleCard('notes')}
+                  className="p-1 hover:bg-muted rounded-sm transition-colors"
+                >
+                  {expandedCards.notes ? (
+                    <ChevronDown className="h-4 w-4" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4" />
+                  )}
+                </button>
+              </CardTitle>
+            </CardHeader>
+            {expandedCards.notes && (
+              <CardContent>
+                {medicalHistory.length === 0 ? (
+                  <p className="text-muted-foreground text-sm">No medical history available</p>
+                ) : (
+                  <div className="space-y-3">
+                    {medicalHistory.map((record) => (
+                      <div key={record.history_id} className="p-3 border rounded-lg">
+                        <div className="flex items-start justify-between mb-2">
+                          <p className="font-medium text-sm">{record.condition}</p>
+                          {record.diagnosis_date && (
+                            <span className="text-xs text-muted-foreground">
+                              {formatDate(record.diagnosis_date)}
+                            </span>
+                          )}
+                        </div>
+                        {record.treatment && (
+                          <p className="text-xs text-muted-foreground mb-1">Treatment: {record.treatment}</p>
+                        )}
+                        {record.notes && (
+                          <p className="text-xs text-muted-foreground">Notes: {record.notes}</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             )}
           </Card>
