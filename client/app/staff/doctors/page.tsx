@@ -1,12 +1,15 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { EmptyState } from "@/components/empty-state"
 import { Badge } from "@/components/ui/badge"
+import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { Search, Phone, Mail, Stethoscope, Calendar } from "lucide-react"
 import type { AppointmentStatus } from "@/lib/types"
+import { apiPath } from "@/app/lib/api"
+import { NewDoctorForm } from "@/components/doctors/new-doctor-form"
 
 interface StaffDoctorResponse {
   doctor_id: number
@@ -37,81 +40,70 @@ export default function StaffDoctorsPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [providers, setProviders] = useState<StaffDoctor[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [isNewDoctorOpen, setIsNewDoctorOpen] = useState(false)
 
-  useEffect(() => {
-    let cancelled = false
+  const fetchProviders = useCallback(async () => {
+    try {
+      setIsLoading(true)
+      const token = typeof window !== "undefined" ? window.localStorage.getItem("authToken") : null
+      const [doctorRes, appointmentsRes] = await Promise.all([
+        fetch(apiPath("/staff/doctors"), {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+          credentials: "include",
+        }),
+        fetch(`${apiPath("/staff/appointments")}?limit=500`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+          credentials: "include",
+        }),
+      ])
 
-    const fetchData = async () => {
-      try {
-        const token = typeof window !== "undefined" ? window.localStorage.getItem("authToken") : null
-        const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3000/api"
+      const [doctorPayload, appointmentsPayload] = await Promise.all([
+        doctorRes.json().catch(() => ({})),
+        appointmentsRes.json().catch(() => ({})),
+      ])
 
-        const [doctorRes, appointmentsRes] = await Promise.all([
-          fetch(`${baseUrl}/staff/doctors`, {
-            headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-            credentials: "include",
-          }),
-          fetch(`${baseUrl}/staff/appointments?limit=500`, {
-            headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-            credentials: "include",
-          }),
-        ])
+      if (!doctorRes.ok || !Array.isArray(doctorPayload.doctors)) {
+        throw new Error("Failed to load doctors")
+      }
+      if (!appointmentsRes.ok || !Array.isArray(appointmentsPayload.appointments)) {
+        throw new Error("Failed to load appointments")
+      }
 
-        const [doctorPayload, appointmentsPayload] = await Promise.all([
-          doctorRes.json().catch(() => ({})),
-          appointmentsRes.json().catch(() => ({})),
-        ])
+      const today = new Date().toISOString().split("T")[0]
+      const counts = new Map<number, number>()
 
-        if (!doctorRes.ok || !Array.isArray(doctorPayload.doctors)) {
-          throw new Error("Failed to load doctors")
-        }
-        if (!appointmentsRes.ok || !Array.isArray(appointmentsPayload.appointments)) {
-          throw new Error("Failed to load appointments")
-        }
-
-        if (cancelled) return
-
-        const today = new Date().toISOString().split("T")[0]
-        const counts = new Map<number, number>()
-
-        for (const appointment of appointmentsPayload.appointments as StaffAppointmentResponse[]) {
-          const doctorId = appointment.doctor_id
-          if (!doctorId) continue
-          const status = normalizeStatus(appointment.status)
-          const startDate = appointment.start_at ? appointment.start_at.split("T")[0] : null
+      for (const appointment of appointmentsPayload.appointments as StaffAppointmentResponse[]) {
+        const doctorId = appointment.doctor_id
+        if (!doctorId) continue
+        const status = normalizeStatus(appointment.status)
+        const startDate = appointment.start_at ? appointment.start_at.split("T")[0] : null
         if (startDate === today && (status === "scheduled" || status === "checked_in")) {
-            counts.set(doctorId, (counts.get(doctorId) ?? 0) + 1)
-          }
-        }
-
-        const mapped = (doctorPayload.doctors as StaffDoctorResponse[]).map((doctor) => ({
-          id: `doctor-${doctor.doctor_id}`,
-          doctorId: doctor.doctor_id,
-          name: doctor.name,
-          specialty: doctor.specialty ?? "General",
-          email: doctor.email ?? "N/A",
-          phone: doctor.phone ?? "N/A",
-          todaysAppointments: counts.get(doctor.doctor_id) ?? 0,
-        }))
-
-        setProviders(mapped)
-      } catch (err) {
-        console.error(err)
-        if (!cancelled) {
-          setProviders([])
-        }
-      } finally {
-        if (!cancelled) {
-          setIsLoading(false)
+          counts.set(doctorId, (counts.get(doctorId) ?? 0) + 1)
         }
       }
-    }
 
-    fetchData()
-    return () => {
-      cancelled = true
+      const mapped = (doctorPayload.doctors as StaffDoctorResponse[]).map((doctor) => ({
+        id: `doctor-${doctor.doctor_id}`,
+        doctorId: doctor.doctor_id,
+        name: doctor.name,
+        specialty: doctor.specialty ?? "General",
+        email: doctor.email ?? "N/A",
+        phone: doctor.phone ?? "N/A",
+        todaysAppointments: counts.get(doctor.doctor_id) ?? 0,
+      }))
+
+      setProviders(mapped)
+    } catch (err) {
+      console.error(err)
+      setProviders([])
+    } finally {
+      setIsLoading(false)
     }
   }, [])
+
+  useEffect(() => {
+    fetchProviders()
+  }, [fetchProviders])
 
   const filteredProviders = useMemo(
     () =>
@@ -127,9 +119,14 @@ export default function StaffDoctorsPage() {
   return (
     <div className="container max-w-5xl mx-auto py-8 px-4">
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold mb-2">Doctor Lookup</h1>
-        <p className="text-muted-foreground">Search providers and view their availability</p>
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold mb-2">Doctor Lookup</h1>
+          <p className="text-muted-foreground">Search providers and view their availability</p>
+        </div>
+        <Button className="rounded-full" onClick={() => setIsNewDoctorOpen(true)}>
+          + Add Doctor
+        </Button>
       </div>
 
       {/* Search */}
@@ -163,6 +160,19 @@ export default function StaffDoctorsPage() {
           ))}
         </div>
       )}
+      <Dialog open={isNewDoctorOpen} onOpenChange={setIsNewDoctorOpen}>
+        <DialogContent className="max-w-2xl p-0" showCloseButton>
+          <div className="px-6 py-6">
+            <NewDoctorForm
+              onCancel={() => setIsNewDoctorOpen(false)}
+              onSuccess={() => {
+                setIsNewDoctorOpen(false)
+                fetchProviders()
+              }}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

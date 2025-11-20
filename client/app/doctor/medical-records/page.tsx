@@ -11,6 +11,7 @@ import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Search, FileText, Calendar, User, Pill, Stethoscope, TrendingUp, Filter } from "lucide-react"
+import { apiPath } from "@/app/lib/api"
 import type { MedicalRecordQuery, MedicalRecordReport } from "@/lib/types"
 
 export default function MedicalRecordsPage() {
@@ -56,8 +57,7 @@ export default function MedicalRecordsPage() {
 
     try {
       const token = typeof window !== "undefined" ? window.localStorage.getItem("authToken") : null
-      const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3000/api"
-      
+
       const searchParams = new URLSearchParams()
       Object.entries(query).forEach(([key, value]) => {
         if (value) {
@@ -69,7 +69,12 @@ export default function MedicalRecordsPage() {
         }
       })
 
-      const res = await fetch(`${baseUrl}/doctor/medical-records/query?${searchParams}`, {
+      const queryString = searchParams.toString()
+      const url = queryString
+        ? `${apiPath("/doctor/medical-records/query")}?${queryString}`
+        : apiPath("/doctor/medical-records/query")
+
+      const res = await fetch(url, {
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
         credentials: "include",
       })
