@@ -24,7 +24,7 @@ const roleConfig = {
     tabs: [
       { label: "Appointments", href: "/patient/appointments" },
       { label: "Files", href: "/patient/files" },
-      { label: "Other", href: "/patient/other" },
+      
     ],
   },
   doctor: {
@@ -33,7 +33,7 @@ const roleConfig = {
       { label: "Appointments", href: "/doctor/appointments" },
       { label: "Patients", href: "/doctor/patients" },
       { label: "Medical Records", href: "/doctor/medical-records" },
-      { label: "Other", href: "/doctor/other" },
+      
     ],
   },
   staff: {
@@ -42,7 +42,7 @@ const roleConfig = {
       { label: "Agenda", href: "/staff/appointments" },
       { label: "Patients", href: "/staff/patients" },
       { label: "Doctors", href: "/staff/doctors" },
-      { label: "Other", href: "/staff/other" },
+      
     ],
   },
 }
