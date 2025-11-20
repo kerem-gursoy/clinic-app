@@ -106,7 +106,7 @@ export default function NewAppointmentPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setErrors(null)
-
+    
     // Basic validation
     if (!patientId) {
       setErrors("Please select a patient")
@@ -129,7 +129,7 @@ export default function NewAppointmentPage() {
       setErrors("Duration must be greater than 0")
       return
     }
-
+    
     // For staff, warn if no doctor is selected
     if (currentUser?.role === "staff" && (!providerId || providerId === "unassigned")) {
       const confirmUnassigned = window.confirm(
@@ -139,7 +139,7 @@ export default function NewAppointmentPage() {
         return
       }
     }
-
+    
     setIsSubmitting(true)
     try {
       const endDate = new Date(startDate)
@@ -191,7 +191,7 @@ export default function NewAppointmentPage() {
     <div className="container max-w-3xl mx-auto py-8 px-4">
       <h1 className="text-2xl font-semibold mb-4">Schedule New Appointment</h1>
       <form onSubmit={handleSubmit} className="space-y-6 bg-card rounded-md border p-6">
-
+        
         {/* Patient Selection */}
         <div className="space-y-2">
           <Label htmlFor="patient">Patient</Label>
@@ -316,7 +316,7 @@ export default function NewAppointmentPage() {
             {errors}
           </div>
         )}
-
+        
         <div className="flex items-center gap-2 pt-4">
           <Button type="submit" disabled={isSubmitting}>
             {isSubmitting ? "Creating…" : "Create Appointment"}
