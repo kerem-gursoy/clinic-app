@@ -3,8 +3,7 @@
     "",
     "\\client",
     "\\client\\app",
-    "\\client\\app\\patient\\appointments",
-    "\\client\\app\\staff\\appointments",
+    "\\client\\app\\staff",
     "\\client\\components",
     "\\client\\components\\appointments",
     "\\server",
@@ -12,6 +11,6 @@
     "\\server\\src\\modules",
     "\\server\\src\\modules\\appointments"
   ],
-  "SelectedNode": "\\client\\components\\appointments\\cancel-appointment-form.tsx",
+  "SelectedNode": "\\client\\app\\staff\\appointments\\page.tsx",
   "PreviewInSolutionExplorer": false
 }

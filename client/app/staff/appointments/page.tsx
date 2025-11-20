@@ -545,30 +545,30 @@ function AgendaListItem({ appointment }: { appointment: StaffAppointmentItem }) 
               {appointment.notes && <DetailRow label="Notes" value={appointment.notes} />}
             </div>
 
+            <div className="flex justify-end gap-2">
                 {appointment.status === "scheduled" && (
-                          <div className="flex justify-end">
-                              <Button variant="outline" onClick={() => setShowCancelForm(true)}>
-                                  Cancel Appointment
-                              </Button>
-                          </div>
-                      )}
-             <Dialog open={showCancelForm} onOpenChange={setShowCancelForm}>
-             <DialogContent>
-                              <CancelAppointmentForm
-                                  appointmentId={appointment.appointmentId} // pass the appointment id here
-                                  onSuccess={() => {
-                                      setShowCancelForm(false)  // close the cancel form after success
-                                      localStorage.setItem("appointments_refresh", String(Date.now())) // refresh appointments
-                                  }}
-                                  onCancel={() => setShowCancelForm(false)} // allow closing without cancelling
-                              />
-                          </DialogContent>
-                      </Dialog>
-                      <div className="flex justify-end">
-                          <Button variant="outline" onClick={() => setIsOpen(false)}>
-                              Close
-                          </Button>
-                      </div>
+                <>         
+                <Button variant="outline" onClick={() => setShowCancelForm(true)}>
+                    Cancel Appointment
+                </Button>
+                <Dialog open={showCancelForm} onOpenChange={setShowCancelForm}>
+                     <DialogContent>
+                         <CancelAppointmentForm
+                          appointmentId={appointment.appointmentId} 
+                          onSuccess={() => {
+                          setShowCancelForm(false)  
+                          localStorage.setItem("appointments_refresh", String(Date.now())) // refresh appointments
+                          }}
+                          onCancel={() => setShowCancelForm(false)} 
+                          />
+                     </DialogContent>
+                </Dialog>
+                </>
+                )}
+                <Button variant="outline" onClick={() => setIsOpen(false)}>
+                     Close
+                </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
