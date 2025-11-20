@@ -235,6 +235,7 @@ export async function listPatientsForDoctor(doctorId, limit = 200) {
             p.patient_lname,
             p.patient_email,
             p.phone,
+            p.dob,
             (SELECT MAX(a.start_at) 
              FROM appointment a 
              WHERE a.patient_id = p.patient_id 
@@ -253,6 +254,7 @@ export async function listPatientsForDoctor(doctorId, limit = 200) {
     name: [row.patient_fname, row.patient_lname].filter(Boolean).join(" ").trim(),
     email: row.patient_email ?? null,
     phone: row.phone ?? null,
+    date_of_birth: row.dob ?? null,
     last_visit: row.last_visit_with_doctor ?? row.last_visit_any ?? null,
   }));
 }
