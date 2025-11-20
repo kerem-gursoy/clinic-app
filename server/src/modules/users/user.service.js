@@ -1,6 +1,19 @@
 import argon2 from "argon2";
 import { pool } from "../../db/pool.js";
 
+function validationError(message) {
+  const err = new Error(message);
+  err.statusCode = 400;
+  return err;
+}
+
+async function assertUnique(connection, query, value, message) {
+  const [rows] = await connection.query(query, [value]);
+  if (rows.length > 0) {
+    throw validationError(message);
+  }
+}
+
 export async function createPatient(data) {
   const connection = await pool.getConnection();
   try {
@@ -52,6 +65,16 @@ export async function createDoctor(data) {
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
+
+    if (!data.ssn) throw validationError("SSN is required");
+    if (!data.license_no) throw validationError("License number is required");
+    if (!data.doc_fname || !data.doc_lname) throw validationError("Doctor name is required");
+    if (!data.email) throw validationError("Email is required");
+
+    await assertUnique(connection, "SELECT doctor_id FROM doctor WHERE ssn = ? LIMIT 1", data.ssn, "A doctor with this SSN already exists");
+    await assertUnique(connection, "SELECT doctor_id FROM doctor WHERE license_no = ? LIMIT 1", data.license_no, "A doctor with this license number already exists");
+    await assertUnique(connection, "SELECT doctor_id FROM doctor WHERE email = ? LIMIT 1", data.email, "A doctor with this email already exists");
+    await assertUnique(connection, "SELECT user_id FROM login WHERE email = ? LIMIT 1", data.email, "This email is already associated with another user");
 
     const [doctorResult] = await connection.query(
       `INSERT INTO doctor (
@@ -171,7 +194,7 @@ export async function searchPatients(term, limit = 25) {
   const like = `%${String(term).replace(/%/g, "\\%").replace(/_/g, "\\_")}%`;
 
   const [rows] = await pool.query(
-    `SELECT patient_id, patient_fname, patient_lname, patient_email
+    `SELECT patient_id, patient_fname, patient_minit, patient_lname, patient_email
        FROM patient
        WHERE CONCAT(patient_fname, ' ', patient_lname) LIKE ?
           OR patient_email LIKE ?
@@ -182,6 +205,7 @@ export async function searchPatients(term, limit = 25) {
   return rows.map((row) => ({
     patient_id: row.patient_id,
     patient_fname: row.patient_fname,
+    patient_minit: row.patient_minit,
     patient_lname: row.patient_lname,
     patient_email: row.patient_email,
   }));
@@ -190,7 +214,7 @@ export async function searchPatients(term, limit = 25) {
 export async function listPatientsForStaff(limit = 200) {
   const normalizedLimit = normalizeLimit(limit, 1, 500);
   const [rows] = await pool.query(
-    `SELECT patient_id, patient_fname, patient_lname, patient_email, phone, dob
+    `SELECT patient_id, patient_fname, patient_minit, patient_lname, patient_email, phone, dob
        FROM patient
        ORDER BY patient_fname ASC
        LIMIT ?`,
@@ -199,7 +223,7 @@ export async function listPatientsForStaff(limit = 200) {
 
   return rows.map((row) => ({
     patient_id: Number(row.patient_id),
-    name: [row.patient_fname, row.patient_lname].filter(Boolean).join(" ").trim(),
+    name: [row.patient_fname, row.patient_minit, row.patient_lname].filter(Boolean).join(" ").trim(),
     email: row.patient_email ?? null,
     phone: row.phone ?? null,
     dob: row.dob ?? null,
@@ -259,23 +283,37 @@ export async function listPatientsForDoctor(doctorId, limit = 200) {
   }));
 }
 
-export async function getFirstNameForRole(userId, role) {
+export async function getNamePartsForRole(userId, role) {
   if (role === "PATIENT") {
     const patient = await findPatientById(userId);
-    return patient?.patient_fname ?? null;
+    return {
+      firstName: patient?.patient_fname ?? null,
+      lastName: patient?.patient_lname ?? null,
+    };
   }
 
   if (role === "DOCTOR") {
     const doctor = await findDoctorById(userId);
-    return doctor?.doc_fname ?? null;
+    return {
+      firstName: doctor?.doc_fname ?? null,
+      lastName: doctor?.doc_lname ?? null,
+    };
   }
 
   if (role === "STAFF") {
     const staff = await findStaffById(userId);
-    return staff?.staff_first_name ?? null;
+    return {
+      firstName: staff?.staff_first_name ?? null,
+      lastName: staff?.staff_last_name ?? null,
+    };
   }
 
-  return null;
+  return { firstName: null, lastName: null };
+}
+
+export async function getFirstNameForRole(userId, role) {
+  const { firstName } = await getNamePartsForRole(userId, role);
+  return firstName;
 }
 
 export async function getPatientEmergencyContacts(patientId) {
@@ -491,3 +529,51 @@ function normalizeLimit(value, min, max) {
   return Math.min(Math.max(parsed, min), max);
 }
 
+export async function updatePatientById(id, updates) {
+  const fields = [];
+  const values = [];
+
+  for (const [key, val] of Object.entries(updates)) {
+    if (val !== undefined) {
+      fields.push(`${key} = ?`);
+      values.push(val);
+    }
+  }
+
+  if (!fields.length) return findPatientById(id);
+
+  const sql = `
+    UPDATE patient
+    SET ${fields.join(", ")}
+    WHERE patient_id = ?
+  `;
+  values.push(id);
+
+  await pool.query(sql, values); // assumes you're using db.query(pool, etc.)
+  return findPatientById(id);
+}
+
+export async function deletePatientById(id) {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    // Delete dependent appointments first to satisfy FK constraints
+    await connection.query(`DELETE FROM appointment WHERE patient_id = ?`, [id]);
+
+    // Remove login entry for the patient if exists
+    await connection.query(`DELETE FROM login WHERE user_id = ?`, [id]);
+
+    // Remove patient record
+    await connection.query(`DELETE FROM patient WHERE patient_id = ?`, [id]);
+
+    await connection.commit();
+    return { success: true };
+  } catch (err) {
+    await connection.rollback();
+    console.error("deletePatientById transaction failed:", err);
+    throw err;
+  } finally {
+    connection.release();
+  }
+}
