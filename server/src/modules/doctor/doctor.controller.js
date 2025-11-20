@@ -34,7 +34,33 @@ export async function getMyPatients(req, res) {
 
   try {
     const patients = await listPatientsForDoctor(authUser.user_id);
-    return res.json({ patients });
+    
+    // Enhance patient data with medications and allergies
+    const enhancedPatients = await Promise.all(
+      patients.map(async (patient) => {
+        try {
+          const [medications, allergies] = await Promise.all([
+            getPatientMedications(patient.patient_id),
+            getPatientAllergies(patient.patient_id)
+          ]);
+          
+          return {
+            ...patient,
+            medications: medications.map(med => med.medication_name || med.name),
+            allergies: allergies.map(allergy => allergy.allergy_name || allergy.allergen_name)
+          };
+        } catch (err) {
+          console.warn(`Failed to fetch additional data for patient ${patient.patient_id}:`, err);
+          return {
+            ...patient,
+            medications: [],
+            allergies: []
+          };
+        }
+      })
+    );
+    
+    return res.json({ patients: enhancedPatients });
   } catch (err) {
     console.error("doctor/patients error:", err);
     return res.status(500).json({ error: err?.message ?? "Failed to load patients" });
