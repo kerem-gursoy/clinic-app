@@ -4,9 +4,8 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Search, User, Menu, X } from "lucide-react"
+import {DropdownMenu,DropdownMenuContent,DropdownMenuItem,DropdownMenuLabel,DropdownMenuSeparator,DropdownMenuTrigger,} from "@/components/ui/dropdown-menu"
+import { Plus, User, Menu, X } from "lucide-react"
 import type { UserRole } from "@/lib/types"
 import { cn } from "@/lib/utils"
 import { getStoredAuthUser, type AuthUser } from "@/lib/auth"
@@ -31,7 +30,6 @@ const roleConfig = {
     tabs: [
       { label: "Appointments", href: "/doctor/appointments" },
       { label: "Patients", href: "/doctor/patients" },
-      { label: "Medical Records", href: "/doctor/medical-records" },
     ],
   },
   staff: {
@@ -93,12 +91,6 @@ export function TopBar({ role, userName, onNewAppointment, onLogout }: TopBarPro
           ))}
         </nav>
 
-        <div className="hidden lg:flex items-center flex-1 max-w-md">
-          <div className="relative w-full">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Search... (⌘K)" className="pl-9 rounded-full" />
-          </div>
-        </div>
 
         <div className="flex items-center gap-2 ml-auto md:ml-0">
           <Dialog open={isProfileDialogOpen} onOpenChange={setIsProfileDialogOpen}>
