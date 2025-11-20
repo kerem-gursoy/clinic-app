@@ -233,7 +233,7 @@ export async function listPatientsForStaff(limit = 200) {
 export async function listDoctorsForStaff(limit = 200) {
   const normalizedLimit = normalizeLimit(limit, 1, 500);
   const [rows] = await pool.query(
-    `SELECT doctor_id, doc_fname, doc_lname, phone
+    `SELECT doctor_id, doc_fname, doc_lname, phone, email
        FROM doctor
        ORDER BY doc_fname ASC
        LIMIT ?`,
@@ -244,7 +244,7 @@ export async function listDoctorsForStaff(limit = 200) {
     doctor_id: Number(row.doctor_id),
     name: [row.doc_fname, row.doc_lname].filter(Boolean).join(" ").trim(),
     specialty: null,
-    email: null,
+    email: row.email ?? null,
     phone: row.phone ?? null,
   }));
 }

@@ -870,6 +870,7 @@ function PatientRow({ patient, calculateAge, onView }: { patient: DoctorPatient;
           <Button variant="outline" size="sm" className="rounded-full bg-transparent" onClick={onView}>
             View
           </Button>
+          */}
         </div>
       </div>
     </div>

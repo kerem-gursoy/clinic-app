@@ -209,6 +209,7 @@ function AppointmentRow({ appointment }: { appointment: PatientAppointment }) {
         <Button variant="ghost" size="sm" onClick={() => setIsOpen(true)}>
           View
         </Button>
+        */}
       </div>
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>

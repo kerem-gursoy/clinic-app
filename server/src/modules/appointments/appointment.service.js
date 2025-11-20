@@ -11,6 +11,36 @@ export async function getAppointmentById(id) {
 }
 
 export async function createAppointment(payload) {
+  const { patientId, providerId, start, end } = payload;
+
+  // Check for overlapping appointments for the patient
+  if (patientId) {
+    const [rows] = await pool.query(
+      `SELECT 1 FROM appointment WHERE patient_id = ? AND NOT (end_at <= ? OR start_at >= ?) LIMIT 1`,
+      [patientId, start, end]
+    );
+    if (rows && rows.length) {
+      const err = new Error("Patient already has an appointment at that time");
+      // attach an HTTP status so controller can respond appropriately
+      err.status = 409;
+      throw err;
+    }
+  }
+
+  // Check for overlapping appointments for the doctor (if assigned)
+  const doctorId = providerId && providerId !== "unassigned" ? providerId : null;
+  if (doctorId) {
+    const [rows] = await pool.query(
+      `SELECT 1 FROM appointment WHERE doctor_id = ? AND NOT (end_at <= ? OR start_at >= ?) LIMIT 1`,
+      [doctorId, start, end]
+    );
+    if (rows && rows.length) {
+      const err = new Error("Doctor already has an appointment at that time");
+      err.status = 409;
+      throw err;
+    }
+  }
+
   return appointmentRepository.insertAppointment(payload);
 }
 
