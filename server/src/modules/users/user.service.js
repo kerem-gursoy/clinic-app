@@ -340,3 +340,28 @@ export async function updatePatientById(id, updates) {
   await pool.query(sql, values); // assumes you're using db.query(pool, etc.)
   return findPatientById(id);
 }
+
+export async function deletePatientById(id) {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    // Delete dependent appointments first to satisfy FK constraints
+    await connection.query(`DELETE FROM appointment WHERE patient_id = ?`, [id]);
+
+    // Remove login entry for the patient if exists
+    await connection.query(`DELETE FROM login WHERE user_id = ?`, [id]);
+
+    // Remove patient record
+    await connection.query(`DELETE FROM patient WHERE patient_id = ?`, [id]);
+
+    await connection.commit();
+    return { success: true };
+  } catch (err) {
+    await connection.rollback();
+    console.error("deletePatientById transaction failed:", err);
+    throw err;
+  } finally {
+    connection.release();
+  }
+}

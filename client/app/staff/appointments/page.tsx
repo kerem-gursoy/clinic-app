@@ -65,6 +65,7 @@ interface StaffAppointmentItem {
 }
 
 export default function StaffAppointmentsPage() {
+  const [flash, setFlash] = useState<{ type: "success" | "error"; text: string } | null>(null)
   const [viewMode, setViewMode] = useState<ViewMode>("agenda")
   const [currentDate, setCurrentDate] = useState(new Date())
   const [appointments, setAppointments] = useState<StaffAppointmentItem[]>([])
@@ -237,6 +238,29 @@ export default function StaffAppointmentsPage() {
 
   return (
     <>
+      {/* Flash message (fixed, above dialogs) */}
+      {flash ? (
+        <div className="fixed inset-x-0 top-4 z-[60] flex justify-center pointer-events-none px-4">
+          <div
+            role="status"
+            className={`pointer-events-auto w-full max-w-3xl rounded-md p-3 border ${
+              flash.type === "success" ? "bg-green-50 border-green-200 text-green-800" : "bg-red-50 border-red-200 text-red-800"
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <div>{flash.text}</div>
+              <button
+                aria-label="dismiss"
+                onClick={() => setFlash(null)}
+                className="ml-4 text-sm opacity-80 hover:opacity-100"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       <div className="container max-w-7xl mx-auto py-8 px-4">
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -322,6 +346,10 @@ export default function StaffAppointmentsPage() {
                 setShowNewAppointment(false)
                 setIsLoading(true)
                 fetchAppointments()
+              }}
+              onNotify={(text: string, type: "success" | "error" = "success") => {
+                setFlash({ text, type })
+                window.setTimeout(() => setFlash(null), 4000)
               }}
             />
           </div>

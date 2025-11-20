@@ -112,3 +112,28 @@ export async function getPatientProfile(req, res) {
     return res.status(500).json({ error: "Failed to fetch patient profile" });
   }
 }
+
+export async function deletePatient(req, res) {
+  const { id } = req.params;
+  const authUser = req.user;
+
+  if (!authUser) return res.status(401).json({ error: "Unauthorized" });
+
+  // Only the patient themself (or staff/doctor) can delete
+  if (authUser.role === "PATIENT" && Number(authUser.user_id) !== Number(id)) {
+    return res.status(403).json({ error: "Forbidden" });
+  }
+
+  try {
+    const existing = await findPatientById(id);
+    if (!existing) return res.status(404).json({ error: "Patient not found" });
+
+    const { deletePatientById } = await import("../users/user.service.js");
+    await deletePatientById(id);
+
+    return res.json({ message: "Patient deleted successfully" });
+  } catch (err) {
+    console.error("patient delete error:", err);
+    return res.status(500).json({ error: err?.message ?? "Failed to delete patient" });
+  }
+}
