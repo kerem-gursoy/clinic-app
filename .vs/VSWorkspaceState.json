@@ -3,14 +3,15 @@
     "",
     "\\client",
     "\\client\\app",
+    "\\client\\app\\patient",
+    "\\client\\app\\patient\\appointments",
     "\\client\\app\\staff",
-    "\\client\\components",
-    "\\client\\components\\appointments",
+    "\\client\\app\\staff\\appointments",
     "\\server",
     "\\server\\src",
     "\\server\\src\\modules",
     "\\server\\src\\modules\\appointments"
   ],
-  "SelectedNode": "\\client\\app\\staff\\appointments\\page.tsx",
+  "SelectedNode": "\\client\\app\\patient\\appointments\\page.tsx",
   "PreviewInSolutionExplorer": false
 }
