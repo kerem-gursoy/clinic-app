@@ -1,4 +1,5 @@
 node_modules/
+.vs/
 
 client/.next/
 client/out/

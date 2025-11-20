@@ -14,7 +14,7 @@ import { apiPath } from "@/app/lib/api"
 interface NewAppointmentFormProps {
   onCancel?: () => void
   onSuccess?: () => void
-  onNotify?: (text: string, type?: "success" | "error") => void
+  onNotify?: (text: string, type?: "error" | "success") => void
   initialPatientId?: number
   initialPatientName?: string
 }

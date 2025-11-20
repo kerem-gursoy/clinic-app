@@ -251,18 +251,24 @@ export async function listDoctorsForStaff(limit = 200) {
 
 export async function listPatientsForDoctor(doctorId, limit = 200) {
   const normalizedLimit = normalizeLimit(limit, 1, 500);
+  
+  // Return all patients for doctors, with last visit information if available
   const [rows] = await pool.query(
-    `SELECT DISTINCT p.patient_id,
+    `SELECT p.patient_id,
             p.patient_fname,
             p.patient_lname,
             p.patient_email,
             p.phone,
-            MAX(a.start_at) AS last_visit
-       FROM appointment a
-       JOIN patient p ON a.patient_id = p.patient_id
-       WHERE a.doctor_id = ?
-       GROUP BY p.patient_id, p.patient_fname, p.patient_lname, p.patient_email, p.phone
-       ORDER BY last_visit DESC
+            p.dob,
+            (SELECT MAX(a.start_at) 
+             FROM appointment a 
+             WHERE a.patient_id = p.patient_id 
+             AND a.doctor_id = ?) AS last_visit_with_doctor,
+            (SELECT MAX(a2.start_at) 
+             FROM appointment a2 
+             WHERE a2.patient_id = p.patient_id) AS last_visit_any
+       FROM patient p
+       ORDER BY p.patient_fname ASC, p.patient_lname ASC
        LIMIT ?`,
     [doctorId, normalizedLimit]
   );
@@ -272,7 +278,8 @@ export async function listPatientsForDoctor(doctorId, limit = 200) {
     name: [row.patient_fname, row.patient_lname].filter(Boolean).join(" ").trim(),
     email: row.patient_email ?? null,
     phone: row.phone ?? null,
-    last_visit: row.last_visit ?? null,
+    date_of_birth: row.dob ?? null,
+    last_visit: row.last_visit_with_doctor ?? row.last_visit_any ?? null,
   }));
 }
 
@@ -307,6 +314,211 @@ export async function getNamePartsForRole(userId, role) {
 export async function getFirstNameForRole(userId, role) {
   const { firstName } = await getNamePartsForRole(userId, role);
   return firstName;
+}
+
+export async function getPatientEmergencyContacts(patientId) {
+  try {
+    const [rows] = await pool.query(
+      `SELECT 
+        econtact_id,
+        first_name,
+        last_name,
+        phone,
+        relationship
+      FROM emergency_contact
+      WHERE patient_id = ?
+      ORDER BY econtact_id`,
+      [patientId]
+    );
+    
+    return rows.map(row => ({
+      contact_id: row.econtact_id,
+      name: [row.first_name, row.last_name].filter(Boolean).join(" ").trim(),
+      phone: row.phone,
+      relationship: row.relationship
+    })) || [];
+  } catch (err) {
+    console.log("Emergency contacts query failed:", err.message);
+    return [];
+  }
+}
+
+export async function getPatientMedications(patientId) {
+  try {
+    // Check if tables exist first
+    const [tableCheck] = await pool.query(
+      "SELECT COUNT(*) as count FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name IN ('medication', 'patient_medication')"
+    );
+    
+    if (tableCheck[0].count < 2) {
+      console.log("Medications tables do not exist in database");
+      return [];
+    }
+
+    // Try to query the medications tables
+    const [rows] = await pool.query(
+      `SELECT 
+        m.medication_id,
+        m.name as medication_name,
+        pm.dosage,
+        'Daily' as frequency,
+        pm.start_date,
+        pm.end_date,
+        pm.prescribed_by,
+        CASE 
+          WHEN pm.end_date IS NULL OR pm.end_date > CURDATE() THEN 'active'
+          ELSE 'discontinued'
+        END as status
+      FROM patient_medication pm
+      JOIN medication m ON pm.med_id = m.medication_id
+      WHERE pm.patient_id = ?
+      ORDER BY pm.start_date DESC`,
+      [patientId]
+    );
+    return rows || [];
+  } catch (err) {
+    // If tables don't exist or query fails, return empty array
+    console.log("Medications query failed:", err.message);
+    return [];
+  }
+}
+
+export async function getPatientAllergies(patientId) {
+  try {
+    // Check if tables exist first
+    const [tableCheck] = await pool.query(
+      "SELECT COUNT(*) as count FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name IN ('allergies', 'patient_allergy')"
+    );
+    
+    if (tableCheck[0].count < 2) {
+      console.log("Allergies tables do not exist in database");
+      return [];
+    }
+
+    // Try to query the allergies tables
+    const [rows] = await pool.query(
+      `SELECT 
+        a.allergy_id,
+        a.allergen_name as allergy_name,
+        'Moderate' as severity,
+        a.allergy_description as reaction,
+        a.allergy_description as notes
+      FROM patient_allergy pa
+      JOIN allergies a ON pa.alrgy_id = a.allergy_id
+      WHERE pa.pat_id = ?
+      ORDER BY a.allergen_name`,
+      [patientId]
+    );
+    return rows || [];
+  } catch (err) {
+    // If tables don't exist or query fails, return empty array
+    console.log("Allergies query failed:", err.message);
+    return [];
+  }
+}
+
+export async function getPatientMedicalHistory(patientId) {
+  try {
+    // Check if table exists first
+    const [tableCheck] = await pool.query(
+      "SELECT COUNT(*) as count FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'medical_history'"
+    );
+    
+    if (tableCheck[0].count === 0) {
+      console.log("Medical history table does not exist in database");
+      return [];
+    }
+
+    // Try to query the medical history table
+    const [rows] = await pool.query(
+      `SELECT 
+        history_id,
+        condition_name as \`condition\`,
+        diagnosis_date,
+        description as treatment,
+        description as notes,
+        created_by as doctor_id,
+        created_at
+      FROM medical_history
+      WHERE patient_id = ?
+      ORDER BY diagnosis_date DESC, created_at DESC`,
+      [patientId]
+    );
+    return rows || [];
+  } catch (err) {
+    // If table doesn't exist or query fails, return empty array
+    console.log("Medical history query failed:", err.message);
+    return [];
+  }
+}
+
+export async function getPatientFullDetails(patientId) {
+  try {
+    const [patientRows] = await pool.query(
+      `SELECT 
+        p.patient_id,
+        p.patient_fname,
+        p.patient_lname,
+        p.patient_minit,
+        p.patient_email,
+        p.phone,
+        p.dob,
+        p.gender,
+        p.balance,
+        p.created_at,
+        p.prim_doctor,
+        lg.gender_label,
+        a.line1 as address_line1,
+        a.line2 as address_line2,
+        a.city,
+        a.state,
+        a.zip_code
+      FROM patient p
+      LEFT JOIN lookup_gender lg ON p.gender = lg.gender_id
+      LEFT JOIN address a ON p.address_id = a.address_id
+      WHERE p.patient_id = ?
+      LIMIT 1`,
+      [patientId]
+    );
+    
+    if (patientRows.length === 0) {
+      return null;
+    }
+    
+    const patient = patientRows[0];
+    
+    // Format address
+    let address = null;
+    if (patient.address_line1) {
+      address = [patient.address_line1, patient.address_line2, patient.city, patient.state, patient.zip_code]
+        .filter(Boolean).join(", ");
+    }
+    
+    // Get emergency contacts
+    const emergencyContacts = await getPatientEmergencyContacts(patientId);
+    const primaryEmergencyContact = emergencyContacts.length > 0 
+      ? `${emergencyContacts[0].name} (${emergencyContacts[0].relationship}) - ${emergencyContacts[0].phone}`
+      : null;
+    
+    return {
+      patient_id: patient.patient_id,
+      name: [patient.patient_fname, patient.patient_lname].filter(Boolean).join(" ").trim(),
+      email: patient.patient_email,
+      phone: patient.phone,
+      date_of_birth: patient.dob,
+      gender: patient.gender,
+      gender_label: patient.gender_label,
+      address: address,
+      emergency_contact: primaryEmergencyContact,
+      emergency_contacts: emergencyContacts,
+      balance: patient.balance,
+      created_at: patient.created_at,
+      primary_doctor_id: patient.prim_doctor
+    };
+  } catch (err) {
+    console.error("getPatientFullDetails error:", err);
+    throw err;
+  }
 }
 
 function normalizeLimit(value, min, max) {
