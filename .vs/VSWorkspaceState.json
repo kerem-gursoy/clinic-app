@@ -12,6 +12,6 @@
     "\\server\\src\\modules",
     "\\server\\src\\modules\\appointments"
   ],
-  "SelectedNode": "\\client\\app\\patient\\appointments\\page.tsx",
+  "SelectedNode": "\\server\\src\\modules\\appointments\\appointment.service.js",
   "PreviewInSolutionExplorer": false
 }
