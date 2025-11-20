@@ -223,6 +223,7 @@ function ProviderRow({ provider }: { provider: StaffDoctor }) {
         </div>
 
         {/* Actions */}
+        
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" className="rounded-full bg-transparent">
             View Schedule

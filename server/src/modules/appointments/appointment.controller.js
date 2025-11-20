@@ -44,7 +44,8 @@ export async function createAppointment(req, res, next) {
     return res.status(201).json({ id: appointmentId });
   } catch (err) {
     console.error("Appointment creation error:", err);
-    return res.status(500).json({ error: err?.message ?? "Failed to create appointment" });
+    const status = err && err.status ? err.status : 500;
+    return res.status(status).json({ error: err?.message ?? "Failed to create appointment" });
   }
 }
 

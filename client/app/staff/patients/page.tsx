@@ -18,6 +18,7 @@ import {
 import { Label } from "@/components/ui/label"
 import { Search, User, Phone, Mail, Calendar, Plus } from "lucide-react"
 import { apiPath } from "@/app/lib/api"
+import { NewAppointmentForm } from "@/components/appointments/new-appointment-form"
 
 const authUser = JSON.parse(localStorage.getItem("authUser") || "{}");
 const staffId = Number(authUser?.user_id);
@@ -58,6 +59,9 @@ export default function StaffPatientsPage() {
   const [flash, setFlash] = useState<{ type: "success" | "error"; text: string } | null>(null)
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
+  const [showNewAppointment, setShowNewAppointment] = useState(false)
+  const [apptPatientId, setApptPatientId] = useState<number | null>(null)
+  const [apptPatientName, setApptPatientName] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -310,10 +314,36 @@ export default function StaffPatientsPage() {
                 setFlash({ text, type })
                 window.setTimeout(() => setFlash(null), 4000)
               }}
+              onBook={(id: number, name: string) => {
+                setApptPatientId(id)
+                setApptPatientName(name)
+                setShowNewAppointment(true)
+              }}
             />
           ))}
         </div>
       )}
+
+      <Dialog open={showNewAppointment} onOpenChange={setShowNewAppointment}>
+        <DialogContent className="max-w-3xl p-0" showCloseButton>
+          <div className="px-6 py-6">
+            <NewAppointmentForm
+              initialPatientId={apptPatientId ?? undefined}
+              initialPatientName={apptPatientName ?? undefined}
+              onCancel={() => setShowNewAppointment(false)}
+              onSuccess={() => {
+                setShowNewAppointment(false)
+                setFlash({ text: "Appointment created", type: "success" })
+                window.setTimeout(() => setFlash(null), 4000)
+              }}
+              onNotify={(text: string, type: "success" | "error" = "success") => {
+                setFlash({ text, type })
+                window.setTimeout(() => setFlash(null), 4000)
+              }}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
@@ -323,11 +353,13 @@ function PatientRow({
   onUpdate,
   onDelete,
   onNotify,
+  onBook,
 }: {
   patient: StaffPatient
   onUpdate: (p: StaffPatient) => void
   onDelete: (id: number) => void
   onNotify?: (text: string, type?: "success" | "error") => void
+  onBook?: (id: number, name: string) => void
 }) {
   const age =
     patient.dob && !Number.isNaN(new Date(patient.dob).getTime())
@@ -386,6 +418,14 @@ function PatientRow({
     setPhone(patient.phone)
     setDob(patient.dob ?? "")
   }, [patient])
+
+  // Build display name using explicit name parts so middle initial shows with a period
+  const parts = [
+    patient.patient_fname,
+    patient.patient_minit ? `${patient.patient_minit}.` : "",
+    patient.patient_lname,
+  ].filter(Boolean)
+  const displayName = parts.join(" ") || patient.name
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -489,16 +529,7 @@ function PatientRow({
 
           {/* Patient Info */}
           <div className="flex-1 min-w-0">
-            {/* Build display name using explicit name parts so middle initial shows with a period */}
-            {(() => {
-              const parts = [
-                patient.patient_fname,
-                patient.patient_minit ? `${patient.patient_minit}.` : "",
-                patient.patient_lname,
-              ].filter(Boolean)
-              const displayName = parts.join(" ") || patient.name
-              return <h3 className="font-semibold mb-1">{displayName}</h3>
-            })()}
+            <h3 className="font-semibold mb-1">{displayName}</h3>
 
             <div className="flex flex-col gap-1 text-sm text-muted-foreground">
               <div className="flex items-center gap-1.5">
@@ -524,7 +555,7 @@ function PatientRow({
 
         {/* Actions */}
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="rounded-full bg-transparent">
+          <Button variant="outline" size="sm" className="rounded-full bg-transparent" onClick={() => onBook?.(patient.patientId, displayName)}>
             <Plus className="h-4 w-4 mr-1" />
             Book
           </Button>
