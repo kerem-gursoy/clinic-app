@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label"
 import { apiPath } from "@/app/lib/api"
 
 interface NewDoctorFormProps {
+  doctorId?: number
   onCancel?: () => void
   onSuccess?: () => void
 }
