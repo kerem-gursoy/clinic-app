@@ -869,8 +869,7 @@ function PatientRow({ patient, calculateAge, onView }: { patient: DoctorPatient;
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" className="rounded-full bg-transparent" onClick={onView}>
             View
-          </Button>
-          */}
+          </Button>          
         </div>
       </div>
     </div>
