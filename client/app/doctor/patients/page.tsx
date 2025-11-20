@@ -196,9 +196,11 @@ function PatientRow({ patient, onBook }: { patient: DoctorPatient; onBook: (pati
             <Plus className="h-4 w-4 mr-1" />
             Book
           </Button>
+          {/*
           <Button variant="ghost" size="sm">
             View
           </Button>
+          */}
         </div>
       </div>
     </div>

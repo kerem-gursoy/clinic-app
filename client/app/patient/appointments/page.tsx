@@ -197,10 +197,11 @@ function AppointmentRow({ appointment }: { appointment: PatientAppointment }) {
 
                 {appointment.notes && <p className="text-sm text-muted-foreground mt-2">{appointment.notes}</p>}
         </div>
-
+        {/*
         <Button variant="ghost" size="sm">
           View
         </Button>
+        */}
       </div>
     </div>
   )
