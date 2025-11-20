@@ -14,6 +14,7 @@ import { apiPath } from "@/app/lib/api"
 interface NewAppointmentFormProps {
   onCancel?: () => void
   onSuccess?: () => void
+  onNotify?: (text: string, type?: "success" | "error") => void
   initialPatientId?: number
   initialPatientName?: string
 }
@@ -21,6 +22,7 @@ interface NewAppointmentFormProps {
 export function NewAppointmentForm({
   onCancel,
   onSuccess,
+  onNotify,
   initialPatientId,
   initialPatientName,
 }: NewAppointmentFormProps) {
