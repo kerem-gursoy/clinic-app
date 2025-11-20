@@ -151,7 +151,7 @@ export default function StaffDoctorsPage() {
       ) : (
         <div className="bg-card rounded-xl border divide-y">
           {filteredProviders.map((provider) => (
-            <ProviderRow key={provider.id} provider={provider} />
+            <ProviderRow key={provider.id} provider={provider} onDelete={() => fetchProviders()} />
           ))}
         </div>
       )}
