@@ -11,6 +11,7 @@ import { Trash2 } from "lucide-react"
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select"
 
 interface NewDoctorFormProps {
+  doctorId?: number
   onCancel?: () => void
   onSuccess?: () => void
   doctorId?: number
@@ -168,7 +169,7 @@ export function NewDoctorForm({ onCancel, onSuccess, doctorId }: NewDoctorFormPr
             <Input
               id="firstName"
               value={firstName}
-              onChange={(e) => setFirstName(e.target.value)}
+              onChange={(e) => setFirstName(e.target.value.replace(/[^a-zA-Z]/g, "").charAt(0).toUpperCase() + e.target.value.replace(/[^a-zA-Z]/g, "").slice(1).toLowerCase())}
               placeholder="Jane"
               required
             />
@@ -178,7 +179,7 @@ export function NewDoctorForm({ onCancel, onSuccess, doctorId }: NewDoctorFormPr
             <Input
               id="lastName"
               value={lastName}
-              onChange={(e) => setLastName(e.target.value)}
+              onChange={(e) => setLastName(e.target.value.replace(/[^a-zA-Z]/g, "").charAt(0).toUpperCase() + e.target.value.replace(/[^a-zA-Z]/g, "").slice(1).toLowerCase())}
               placeholder="Doe"
               required
             />

@@ -18,7 +18,6 @@ interface StaffDoctorResponse {
   email: string | null
   phone: string | null
 }
-
 interface StaffDoctor {
   id: string
   doctorId: number
@@ -28,14 +27,12 @@ interface StaffDoctor {
   phone: string
   todaysAppointments: number
 }
-
 interface StaffAppointmentResponse {
   appointment_id: number
   doctor_id: number | null
   status: string | null
   start_at: string | null
 }
-
 export default function StaffDoctorsPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [providers, setProviders] = useState<StaffDoctor[]>([])
@@ -107,7 +104,7 @@ export default function StaffDoctorsPage() {
 
   const filteredProviders = useMemo(
     () =>
-      providers.filter(
+      providers.filter(  
         (provider) =>
           provider.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
           provider.specialty.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -115,7 +112,6 @@ export default function StaffDoctorsPage() {
       ),
     [providers, searchQuery],
   )
-
   return (
     <div className="container max-w-5xl mx-auto py-8 px-4">
       {/* Header */}
@@ -141,8 +137,7 @@ export default function StaffDoctorsPage() {
           />
         </div>
       </div>
-
-      {/* Results */}
+      
       {isLoading ? (
         <div className="bg-card rounded-xl border p-8 text-center text-muted-foreground">Loading providers…</div>
       ) : searchQuery && filteredProviders.length === 0 ? (
@@ -219,7 +214,7 @@ function ProviderRow({ provider, onDelete }: { provider: StaffDoctor; onDelete?:
                   <span className="text-muted-foreground">
                     {upcomingCount === 1 ? "appointment" : "appointments"} today
                   </span>
-                </span>
+                </span>                  
               </div>
             </div>
           </div>
