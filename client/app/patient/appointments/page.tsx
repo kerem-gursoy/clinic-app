@@ -205,7 +205,7 @@ function AppointmentRow({ appointment }: { appointment: PatientAppointment }) {
 
           {appointment.notes && <p className="text-sm text-muted-foreground mt-2">{appointment.notes}</p>}
         </div>
-
+        
         <Button variant="ghost" size="sm" onClick={() => setIsOpen(true)}>
           View
         </Button>

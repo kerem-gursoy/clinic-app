@@ -77,7 +77,7 @@ export async function deleteAppointment(id) {
   await pool.execute("DELETE FROM appointment WHERE appointment_id=?", [id]);
 }
 
-export async function listAppointmentsForPatient(patientId, { startDate, endDate, status } = {}) {
+export async function listAppointmentsForPatient(patientId, { startDate, endDate, status, amount } = {}) {
   let sql = `
     SELECT
       a.*,
@@ -105,7 +105,7 @@ export async function listAppointmentsForPatient(patientId, { startDate, endDate
     sql += " AND a.status = ?";
     params.push(status);
   }
-
+  
   sql += " ORDER BY a.start_at ASC";
 
   const [rows] = await pool.query(sql, params);
