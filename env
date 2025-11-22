@@ -1,8 +1,0 @@
-PORT=3000
-DB_HOST=db-3380.cb0i6wg04k1f.us-east-2.rds.amazonaws.com
-DB_PORT=3306
-DB_USER=admin
-DB_PASSWORD="tejKys-0sucre-dagjes"
-DB_NAME=project
-JWT_SECRET=uma
-NEXT_PUBLIC_API_BASE_URL=http://54.91.77.86/
