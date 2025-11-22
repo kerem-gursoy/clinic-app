@@ -3,6 +3,7 @@
 import type React from "react"
 
 import { useEffect, useMemo, useState } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { EmptyState } from "@/components/empty-state"
@@ -935,118 +936,9 @@ function PatientRow({ patient, calculateAge, onView }: { patient: DoctorPatient;
 
         {/* Actions */}
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="rounded-full bg-transparent">
-            <Plus className="h-4 w-4 mr-1" />
-            Book
-          </Button>
-
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-              <Button variant="ghost" size="sm">
-                Edit
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[480px]">
-              <form onSubmit={handleSubmit}>
-                <DialogHeader>
-                  <DialogTitle>Edit Patient</DialogTitle>
-                  <div className="text-sm text-muted-foreground">Update patient details and save.</div>
-                </DialogHeader>
-
-                <div className="grid gap-4 py-4">
-                  <div className="grid gap-2">
-                    <div className="grid grid-cols-3 gap-2">
-                      <div>
-                        <Label htmlFor={`fname-${patient.patientId}`}>First</Label>
-                        <Input
-                          id={`fname-${patient.patientId}`}
-                          value={firstName}
-                          onChange={(e) => setFirstName(e.target.value)}
-                          required
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor={`minit-${patient.patientId}`}>M.I.</Label>
-                        <Input
-                          id={`minit-${patient.patientId}`}
-                          maxLength={1}
-                          value={middleInitial}
-                          onChange={(e) => setMiddleInitial(e.target.value)}
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor={`lname-${patient.patientId}`}>Last</Label>
-                        <Input
-                          id={`lname-${patient.patientId}`}
-                          value={lastName}
-                          onChange={(e) => setLastName(e.target.value)}
-                          required
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="grid gap-2">
-                    <Label htmlFor={`dob-${patient.patientId}`}>Date of Birth</Label>
-                    <Input
-                      id={`dob-${patient.patientId}`}
-                      type="date"
-                      value={dob ?? ""}
-                      onChange={(e) => setDob(e.target.value)}
-                    />
-                  </div>
-
-                  <div className="grid gap-2">
-                    <Label htmlFor={`email-${patient.patientId}`}>Email</Label>
-                    <Input
-                      id={`email-${patient.patientId}`}
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      required
-                    />
-                  </div>
-
-                  <div className="grid gap-2">
-                    <Label htmlFor={`phone-${patient.patientId}`}>Phone</Label>
-                    <Input
-                      id={`phone-${patient.patientId}`}
-                      type="tel"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      required
-                    />
-                  </div>
-                </div>
-
-                <DialogFooter>
-                  {confirmingDelete ? (
-                    <div className="flex items-center gap-2">
-                      <div className="text-sm text-muted-foreground mr-4">Are you sure you want to delete this patient?</div>
-                      <Button type="button" variant="outline" onClick={() => setConfirmingDelete(false)} disabled={isSaving}>
-                        Cancel
-                      </Button>
-                      <Button type="button" variant="destructive" onClick={performDelete} disabled={isSaving}>
-                        {isSaving ? "Deleting..." : "Confirm Delete"}
-                      </Button>
-                    </div>
-                  ) : (
-                    <>
-                      <Button type="button" variant="destructive" onClick={handleDelete} disabled={isSaving}>
-                        Delete
-                      </Button>
-                      <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-                        Cancel
-                      </Button>
-                      <Button type="submit" disabled={isSaving}>
-                        {isSaving ? "Saving..." : "Save"}
-                      </Button>
-                    </>
-                  )}
-                </DialogFooter>
-              </form>
-            </DialogContent>
-          </Dialog>
+          <Button variant="outline" size="sm" className="rounded-full bg-transparent" onClick={onView}>
+            View
+          </Button>          
         </div>
       </div>
     </div>
