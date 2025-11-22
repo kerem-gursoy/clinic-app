@@ -14,7 +14,6 @@ interface NewDoctorFormProps {
   doctorId?: number
   onCancel?: () => void
   onSuccess?: () => void
-  doctorId?: number
 }
 
 export function NewDoctorForm({ onCancel, onSuccess, doctorId }: NewDoctorFormProps) {
