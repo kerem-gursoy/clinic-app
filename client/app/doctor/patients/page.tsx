@@ -1,7 +1,5 @@
 "use client"
 
-import type React from "react"
-
 import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -14,10 +12,7 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/
 import { Bar, BarChart, XAxis, YAxis, ResponsiveContainer, PieChart, Pie, Cell } from "recharts"
 import { apiPath } from "@/app/lib/api"
 
-const authUser = JSON.parse(localStorage.getItem("authUser") || "{}");
-const staffId = Number(authUser?.user_id);
-
-interface StaffPatientResponse {
+interface DoctorPatientResponse {
   patient_id: number
   name: string
   email: string | null
@@ -28,12 +23,9 @@ interface StaffPatientResponse {
   allergies?: string[]
 }
 
-interface StaffPatient {
+interface DoctorPatient {
   id: string
   patientId: number
-  patient_fname: string
-  patient_minit?: string | null
-  patient_lname: string
   name: string
   email: string
   phone: string
@@ -418,64 +410,9 @@ export default function DoctorPatientsPage() {
   return (
     <div className="container max-w-5xl mx-auto py-8 px-4 overflow-x-hidden">
       {/* Header */}
-      <div className="mb-6 flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold mb-2">Patient Management</h1>
-          <p className="text-muted-foreground">Search and manage patient records</p>
-        </div>
-
-        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="rounded-full">
-              <Plus className="h-4 w-4 mr-2" />
-              Add Patient
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[500px]">
-            <form onSubmit={handleAddPatient}>
-              <DialogHeader>
-                <DialogTitle>Add New Patient</DialogTitle>
-                <DialogDescription>Enter the patient's information to create a new record.</DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="fname">First Name *</Label>
-                  <Input id="fname" name="fname" placeholder="John" required />
-                  <Label htmlFor="minit">Middle Initial</Label>
-                  <Input maxLength={1} id="minit" name="minit" placeholder="M" />
-                  <Label htmlFor="lname">Last Name *</Label>
-                  <Input id="lname" name="lname" placeholder="Doe" required />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="dateOfBirth">Date of Birth *</Label>
-                  <Input id="dateOfBirth" name="dateOfBirth" type="date" required />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="email">Email *</Label>
-                  <Input id="email" name="email" type="email" placeholder="john@example.com" required />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="phone">Phone *</Label>
-                  <Input id="phone" name="phone" type="tel" placeholder="(555) 123-4567" required />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="insuranceProvider">Insurance Provider</Label>
-                  <Input id="insuranceProvider" name="insuranceProvider" placeholder="Blue Cross" />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="insuranceId">Insurance ID</Label>
-                  <Input id="insuranceId" name="insuranceId" placeholder="BC123456789" />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit">Add Patient</Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+      <div className="mb-6">
+        <h1 className="text-2xl font-semibold mb-2">My Patients</h1>
+        <p className="text-muted-foreground">Search and manage your patient list</p>
       </div>
 
       {/* Search */}
@@ -852,22 +789,18 @@ export default function DoctorPatientsPage() {
 
       {/* Results */}
       {isLoading ? (
-        <div className="bg-card rounded-xl border p-8 text-center text-muted-foreground">Loading patient list…</div>
+        <div className="bg-card rounded-xl border p-8 text-center text-muted-foreground">Loading patients…</div>
       ) : searchQuery && filteredPatients.length === 0 ? (
         <EmptyState
           icon={Search}
           title="No patients found"
-          description="Try adjusting your search terms or add a new patient."
+          description="Try adjusting your search terms or browse all patients."
         />
       ) : filteredPatients.length === 0 ? (
         <EmptyState
           icon={User}
           title="No patients yet"
-          description="Add your first patient to get started."
-          action={{
-            label: "Add Patient",
-            onClick: () => setIsAddDialogOpen(true),
-          }}
+          description="Your patient list will appear here once you start seeing patients."
         />
       ) : (
         <div className="bg-card rounded-xl border divide-y">
@@ -929,8 +862,6 @@ function PatientRow({ patient, calculateAge, onView }: { patient: DoctorPatient;
                 </div>
               )}
             </div>
-
-            {/* Insurance details not yet available from API */}
           </div>
         </div>
 
@@ -956,19 +887,5 @@ function mapDoctorPatient(patient: DoctorPatientResponse): DoctorPatient {
     dateOfBirth: patient.date_of_birth ?? null,
     medications: patient.medications ?? [],
     allergies: patient.allergies ?? [],
-  }
-
-  const displayName = [fname, minit ? `${minit}.` : "", lname].filter(Boolean).join(" ") || (patient.name ?? "")
-
-  return {
-    id: `patient-${patient.patient_id}`,
-    patientId: patient.patient_id,
-    patient_fname: fname,
-    patient_minit: minit,
-    patient_lname: lname,
-    name: displayName,
-    email: patient.patient_email ?? (patient as any).email ?? "N/A",
-    phone: patient.phone ?? "N/A",
-    dob: patient.dob ?? null,
   }
 }
