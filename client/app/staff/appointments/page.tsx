@@ -48,7 +48,6 @@ interface StaffAppointmentResponse {
   time: string | null
   duration: number | null
   notes?: string | null
-  amount?: number | null
 }
 
 interface StaffAppointmentItem {
@@ -64,7 +63,6 @@ interface StaffAppointmentItem {
   duration: number
   reason: string
   notes?: string | null
-  amount?: number | null
 }
 
 export default function StaffAppointmentsPage() {
@@ -508,7 +506,7 @@ function AgendaListItem({ appointment }: { appointment: StaffAppointmentItem }) 
           </div>
 
           <h3 className="font-semibold mb-1">{appointment.patientName}</h3>
-          <h3 className="font-semibold mb-1">${appointment.amount}</h3>
+
           <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-sm text-muted-foreground">
             <div className="flex items-center gap-1.5">
               <Clock className="h-4 w-4" />
@@ -605,7 +603,6 @@ function mapStaffAppointment(appt: StaffAppointmentResponse): StaffAppointmentIt
     duration: appt.duration ?? 0,
     reason: appt.reason ?? "General visit",
     notes: appt.notes ?? null,
-    amount: appt.amount ?? null,
   }
 }
 

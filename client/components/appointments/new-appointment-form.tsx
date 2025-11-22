@@ -37,15 +37,6 @@ export function NewAppointmentForm({
   const [start, setStart] = useState<string>("")
   const [duration, setDuration] = useState<number>(60)
   const [reason, setReason] = useState<string>("")
-   // use a non-empty default so SelectItem value is never an empty string
-   const [procedureCode, setProcedureCode] = useState<string>("none")
-  // map procedure codes to prices (dollars)
-  const procedureAmounts: Record<string, number> = {
-    wellness_check: 100,
-    sick_visit: 80,
-    vaccination: 30,
-    lab_visit: 40,
-  }
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [minStartValue, setMinStartValue] = useState<string>("")
   const [doctors, setDoctors] = useState<Array<any>>([])
@@ -198,17 +189,12 @@ export function NewAppointmentForm({
       const endDate = new Date(startDate)
       endDate.setMinutes(endDate.getMinutes() + (Number(duration) || 0))
 
-      const amount = procedureCode && procedureCode !== "none" ? procedureAmounts[procedureCode] ?? null : null
-
       const payload = {
         patientId: Number(patientId),
         providerId: providerId && providerId !== "unassigned" ? Number(providerId) : null,
         start: startDate.toISOString(),
         end: endDate.toISOString(),
         reason,
-        amount,
-        // map the UI sentinel "none" to null for the backend/db
-        procedure_code: procedureCode && procedureCode !== "none" ? procedureCode : null,
         status: "scheduled",
       }
 
@@ -359,24 +345,6 @@ export function NewAppointmentForm({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="procedure">Appointment Type</Label>
-          <Select value={procedureCode} onValueChange={setProcedureCode}>
-            <SelectTrigger id="procedure">
-              <SelectValue placeholder="Select appointment type" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">(None)</SelectItem>
-              <SelectItem value="wellness_check">Wellness check</SelectItem>
-              <SelectItem value="sick_visit">Sick visit</SelectItem>
-              <SelectItem value="vaccination">Vaccination</SelectItem>
-              <SelectItem value="lab_visit">Lab Visit</SelectItem>
-            </SelectContent>
-          </Select>
-
-          {procedureCode && procedureCode !== "none" && (
-            <div className="text-sm text-muted-foreground mt-1">Price: ${procedureAmounts[procedureCode]}</div>
-          )}
-
           <Label htmlFor="reason">Reason</Label>
           <Input
             id="reason"
