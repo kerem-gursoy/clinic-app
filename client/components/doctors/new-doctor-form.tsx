@@ -1,29 +1,38 @@
 "use client"
 
 import { useState } from "react"
-
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { apiPath } from "@/app/lib/api"
+import { formatPhoneNumber, formatLicenseNumber } from "@/lib/utils"
+import { Trash2 } from "lucide-react"
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select"
 
 interface NewDoctorFormProps {
+  doctorId?: number
   onCancel?: () => void
   onSuccess?: () => void
+  doctorId?: number
 }
 
-export function NewDoctorForm({ onCancel, onSuccess }: NewDoctorFormProps) {
+export function NewDoctorForm({ onCancel, onSuccess, doctorId }: NewDoctorFormProps) {
   const [firstName, setFirstName] = useState("")
   const [lastName, setLastName] = useState("")
   const [middleInitial, setMiddleInitial] = useState("")
   const [email, setEmail] = useState("")
+  // phone stores raw digits; displayed formatted
   const [phone, setPhone] = useState("")
+  // gender stored as string "1"|"2"|"3"
   const [gender, setGender] = useState("")
+  // licenseNumber stores only digits (up to 5). display uses formatLicenseNumber(licenseNumber)
   const [licenseNumber, setLicenseNumber] = useState("")
   const [ssn, setSsn] = useState("")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const resetForm = () => {
@@ -39,6 +48,36 @@ export function NewDoctorForm({ onCancel, onSuccess }: NewDoctorFormProps) {
     setConfirmPassword("")
   }
 
+  const handleDelete = async () => {
+    if (!doctorId) return
+
+    setIsDeleting(true)
+    setError(null)
+    try {
+      const token = typeof window !== "undefined" ? window.localStorage.getItem("authToken") : null
+
+      const res = await fetch(apiPath(`/doctors/${doctorId}`), {
+        method: "DELETE",
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        credentials: "include",
+      })
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(body?.error || "Failed to delete doctor")
+      }
+
+      onSuccess?.()
+    } catch (err) {
+      console.error(err)
+      setError((err as Error).message || "Failed to delete doctor")
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
@@ -47,14 +86,23 @@ export function NewDoctorForm({ onCancel, onSuccess }: NewDoctorFormProps) {
       setError("First and last name are required")
       return
     }
-    if (!licenseNumber.trim()) {
-      setError("License number is required")
+
+    // licenseNumber must be exactly 5 digits
+    if (licenseNumber.length !== 5) {
+      setError("License number must contain exactly 5 digits (format LIC-12345)")
       return
     }
+
     if (!ssn.trim()) {
       setError("SSN is required")
       return
     }
+
+    if (ssn.length > 10) {
+      setError("SSN must be at most 10 characters")
+      return
+    }
+
     if (!password) {
       setError("Password is required")
       return
@@ -72,8 +120,9 @@ export function NewDoctorForm({ onCancel, onSuccess }: NewDoctorFormProps) {
         doc_minit: middleInitial || null,
         email,
         phone: phone || null,
-        gender: gender || null,
-        license_no: licenseNumber,
+        gender: gender ? Number(gender) : null,
+        // server expects LIC-12345 string
+        license_no: licenseNumber ? `LIC-${licenseNumber}` : null,
         ssn,
         availability: 1,
         password,
@@ -120,7 +169,7 @@ export function NewDoctorForm({ onCancel, onSuccess }: NewDoctorFormProps) {
             <Input
               id="firstName"
               value={firstName}
-              onChange={(e) => setFirstName(e.target.value)}
+              onChange={(e) => setFirstName(e.target.value.replace(/[^a-zA-Z]/g, "").charAt(0).toUpperCase() + e.target.value.replace(/[^a-zA-Z]/g, "").slice(1).toLowerCase())}
               placeholder="Jane"
               required
             />
@@ -130,7 +179,7 @@ export function NewDoctorForm({ onCancel, onSuccess }: NewDoctorFormProps) {
             <Input
               id="lastName"
               value={lastName}
-              onChange={(e) => setLastName(e.target.value)}
+              onChange={(e) => setLastName(e.target.value.replace(/[^a-zA-Z]/g, "").charAt(0).toUpperCase() + e.target.value.replace(/[^a-zA-Z]/g, "").slice(1).toLowerCase())}
               placeholder="Doe"
               required
             />
@@ -147,12 +196,16 @@ export function NewDoctorForm({ onCancel, onSuccess }: NewDoctorFormProps) {
           </div>
           <div className="space-y-2">
             <Label htmlFor="gender">Gender</Label>
-            <Input
-              id="gender"
-              value={gender}
-              onChange={(e) => setGender(e.target.value)}
-              placeholder="Female"
-            />
+            <Select value={gender} onValueChange={setGender}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select gender" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1">Female</SelectItem>
+                <SelectItem value="2">Male</SelectItem>
+                <SelectItem value="3">Other</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
@@ -172,8 +225,11 @@ export function NewDoctorForm({ onCancel, onSuccess }: NewDoctorFormProps) {
             <Label htmlFor="phone">Phone</Label>
             <Input
               id="phone"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
+              value={formatPhoneNumber(phone)}
+              onChange={(e) => {
+                const rawDigits = e.target.value.replace(/\D/g, "")
+                setPhone(rawDigits.slice(0, 10))
+              }}
               placeholder="(555) 123-4567"
             />
           </div>
@@ -184,19 +240,24 @@ export function NewDoctorForm({ onCancel, onSuccess }: NewDoctorFormProps) {
             <Label htmlFor="licenseNumber">License Number</Label>
             <Input
               id="licenseNumber"
-              value={licenseNumber}
-              onChange={(e) => setLicenseNumber(e.target.value)}
+              value={formatLicenseNumber(licenseNumber)}
+              onChange={(e) => {
+                const digits = e.target.value.replace(/\D/g, "").slice(0, 5)
+                setLicenseNumber(digits)
+              }}
               placeholder="LIC-12345"
               required
             />
           </div>
+
           <div className="space-y-2">
             <Label htmlFor="ssn">SSN</Label>
             <Input
               id="ssn"
               value={ssn}
-              onChange={(e) => setSsn(e.target.value)}
-              placeholder="123456789"
+              onChange={(e) => setSsn(e.target.value.slice(0, 10))}
+              placeholder="1234567890"
+              maxLength={10}
               required
             />
           </div>
@@ -234,6 +295,29 @@ export function NewDoctorForm({ onCancel, onSuccess }: NewDoctorFormProps) {
           <Button type="button" variant="outline" onClick={onCancel}>
             Cancel
           </Button>
+          {doctorId && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button type="button" variant="ghost" size="sm" className="ml-auto text-destructive hover:text-destructive">
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete Doctor</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Are you sure you want to delete this doctor? This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <div className="flex gap-2 justify-end">
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleDelete} disabled={isDeleting} className="bg-destructive hover:bg-destructive/90">
+                    {isDeleting ? "Deleting…" : "Delete"}
+                  </AlertDialogAction>
+                </div>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
         </div>
       </form>
     </div>

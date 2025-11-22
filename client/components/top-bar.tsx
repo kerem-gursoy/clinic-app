@@ -5,8 +5,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import {DropdownMenu,DropdownMenuContent,DropdownMenuItem,DropdownMenuLabel,DropdownMenuSeparator,DropdownMenuTrigger,} from "@/components/ui/dropdown-menu"
-import { Input } from "@/components/ui/input"
-import { Plus, Search, User, Menu, X } from "lucide-react"
+import { Plus, User, Menu, X } from "lucide-react"
 import type { UserRole } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
@@ -23,7 +22,6 @@ const roleConfig = {
     tabs: [
       { label: "Appointments", href: "/patient/appointments" },
       { label: "Files", href: "/patient/files" },
-      { label: "Other", href: "/patient/other" },
     ],
   },
   doctor: {
@@ -31,8 +29,6 @@ const roleConfig = {
     tabs: [
       { label: "Appointments", href: "/doctor/appointments" },
       { label: "Patients", href: "/doctor/patients" },
-      { label: "Medical Records", href: "/doctor/medical-records" },
-      { label: "Other", href: "/doctor/other" },
     ],
   },
   staff: {
@@ -41,7 +37,7 @@ const roleConfig = {
       { label: "Agenda", href: "/staff/appointments" },
       { label: "Patients", href: "/staff/patients" },
       { label: "Doctors", href: "/staff/doctors" },
-      { label: "Other", href: "/staff/other" },
+      { label: "Report", href: "/admin/reports/appointments" },
     ],
   },
 }
@@ -80,13 +76,7 @@ export function TopBar({ role, userName, onNewAppointment, onLogout }: TopBarPro
           ))}
         </nav>
 
-        {/* Search */}
-        <div className="hidden lg:flex items-center flex-1 max-w-md">
-          <div className="relative w-full">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Search... (⌘K)" className="pl-9 rounded-full" />
-          </div>
-        </div>
+
 
         {/* Actions */}
         <div className="flex items-center gap-2 ml-auto md:ml-0">
@@ -99,10 +89,8 @@ export function TopBar({ role, userName, onNewAppointment, onLogout }: TopBarPro
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>My Account</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <Link href="/patient/profile">Profile</Link>
-              </DropdownMenuItem>
-              
+              <DropdownMenuItem>Profile</DropdownMenuItem>
+              <DropdownMenuItem>Settings</DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleLogout} disabled={isLoggingOut}>
                 {isLoggingOut ? "Logging out..." : "Log out"}
