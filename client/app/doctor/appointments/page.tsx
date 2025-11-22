@@ -101,28 +101,15 @@ export default function DoctorAppointmentsPage() {
     }
   }, [])
 
-    const fetchAppointments = async () => {
-      try {
-        const token = typeof window !== "undefined" ? window.localStorage.getItem("authToken") : null
-        const res = await fetch(apiPath("/doctor/appointments"), {
-          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-          credentials: "include",
-        })
-        const data = await res.json().catch(() => ({}))
-        if (!res.ok || !Array.isArray(data.appointments)) {
-          throw new Error("Failed to load appointments")
-        }
-
-        if (cancelled) return
-        setAppointments(data.appointments.map(mapAppointment))
-      } catch (err) {
-        console.error(err)
-        if (!cancelled) {
-          setAppointments([])
-        }
-      } finally {
-        if (!cancelled) {
-          setIsLoading(false)
+  useEffect(() => {
+    // refetch when returning to page or when another tab signals refresh
+    const onVisibility = async () => {
+      if (document.visibilityState === "visible") {
+        const flag = localStorage.getItem("appointments_refresh")
+        if (flag) {
+          setIsLoading(true)
+          await fetchAppointments()
+          localStorage.removeItem("appointments_refresh")
         }
       }
     }
@@ -325,7 +312,7 @@ function WeekView({ appointments, currentDate }: { appointments: CalendarAppoint
               })
 
               return (
-                <div key={i} className="p-2 border-r last:border-r-0 min-h-[80px] hover:bg-muted/30 transition-colors">
+                <div key={i} className="p-2 border-r last:border-r-0 min-h-20 hover:bg-muted/30 transition-colors">
                   {hourAppointments.map((apt) => (
                     <div
                       key={apt.id}
