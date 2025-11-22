@@ -174,7 +174,62 @@ export default function StaffDoctorsPage() {
 
 function ProviderRow({ provider, onDelete }: { provider: StaffDoctor; onDelete?: () => void }) {
   const [isDetailsOpen, setIsDetailsOpen] = useState(false)
+  const [isScheduleOpen, setIsScheduleOpen] = useState(false)
+  const [doctorData, setDoctorData] = useState<any>(null)
+  const [isLoadingDoctor, setIsLoadingDoctor] = useState(false)
+  const [appointments, setAppointments] = useState<any[]>([])
+  const [isLoadingSchedule, setIsLoadingSchedule] = useState(false)
   const upcomingCount = provider.todaysAppointments
+
+  const handleEditClick = async () => {
+    setIsLoadingDoctor(true)
+    setIsDetailsOpen(true)
+    try {
+      const token = typeof window !== "undefined" ? window.localStorage.getItem("authToken") : null
+      const res = await fetch(apiPath(`/doctors/${provider.doctorId}`), {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        credentials: "include",
+      })
+      const data = await res.json()
+      if (res.ok && data.doctor) {
+        setDoctorData(data.doctor)
+      }
+    } catch (err) {
+      console.error("Failed to fetch doctor:", err)
+    } finally {
+      setIsLoadingDoctor(false)
+    }
+  }
+
+  const handleViewSchedule = async () => {
+    setIsScheduleOpen(true)
+    setIsLoadingSchedule(true)
+    try {
+      const token = typeof window !== "undefined" ? window.localStorage.getItem("authToken") : null
+      const res = await fetch(apiPath("/staff/appointments?limit=500"), {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        credentials: "include",
+      })
+      const data = await res.json()
+      if (res.ok && data.appointments) {
+        const now = new Date()
+        const futureAppointments = data.appointments
+          .filter((apt: any) => {
+            if (apt.doctor_id !== provider.doctorId) return false
+            if (!apt.start_at) return false
+            const startDate = new Date(apt.start_at)
+            return startDate >= now
+          })
+          .sort((a: any, b: any) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime())
+        
+        setAppointments(futureAppointments)
+      }
+    } catch (err) {
+      console.error("Failed to fetch appointments:", err)
+    } finally {
+      setIsLoadingSchedule(false)
+    }
+  }
 
   return (
     <>
@@ -221,27 +276,113 @@ function ProviderRow({ provider, onDelete }: { provider: StaffDoctor; onDelete?:
 
           {/* Actions */}
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" className="rounded-full bg-transparent">
+            <Button variant="outline" size="sm" className="rounded-full bg-transparent" onClick={handleViewSchedule}>
               View Schedule
             </Button>
-            <Button variant="ghost" size="sm" onClick={() => setIsDetailsOpen(true)}>
-              Details
+            <Button variant="ghost" size="sm" onClick={handleEditClick}>
+              Edit
             </Button>
           </div>
         </div>
       </div>
 
-      <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
+      {/* Edit Dialog */}
+      <Dialog open={isDetailsOpen} onOpenChange={(open) => {
+        setIsDetailsOpen(open)
+        if (!open) setDoctorData(null)
+      }}>
         <DialogContent className="max-w-2xl p-0" showCloseButton>
           <div className="px-6 py-6">
-            <NewDoctorForm
-              doctorId={provider.doctorId}
-              onCancel={() => setIsDetailsOpen(false)}
-              onSuccess={() => {
-                setIsDetailsOpen(false)
-                onDelete?.()
-              }}
-            />
+            {isLoadingDoctor ? (
+              <div className="text-center py-8 text-muted-foreground">Loading doctor information…</div>
+            ) : (
+              <NewDoctorForm
+                doctor={doctorData}
+                onCancel={() => setIsDetailsOpen(false)}
+                onSuccess={() => {
+                  setIsDetailsOpen(false)
+                  setDoctorData(null)
+                  onDelete?.()
+                }}
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* View Schedule Dialog */}
+      <Dialog open={isScheduleOpen} onOpenChange={setIsScheduleOpen}>
+        <DialogContent className="max-w-2xl max-h-[600px]" showCloseButton>
+          <div className="px-6 py-6">
+            <div className="mb-4">
+              <h2 className="text-2xl font-semibold">{provider.name}'s Schedule</h2>
+              <p className="text-sm text-muted-foreground">Upcoming appointments</p>
+            </div>
+
+            {isLoadingSchedule ? (
+              <div className="text-center py-8 text-muted-foreground">Loading schedule…</div>
+            ) : appointments.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <Calendar className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                <p>No upcoming appointments</p>
+              </div>
+            ) : (
+              <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
+                {appointments.map((apt: any) => {
+                  const startDate = new Date(apt.start_at)
+                  const dateStr = startDate.toLocaleDateString("en-US", { 
+                    weekday: "short", 
+                    month: "short", 
+                    day: "numeric", 
+                    year: "numeric" 
+                  })
+                  const timeStr = startDate.toLocaleTimeString("en-US", { 
+                    hour: "numeric", 
+                    minute: "2-digit",
+                    hour12: true 
+                  })
+
+                  return (
+                    <div key={apt.appointment_id} className="border rounded-lg p-4 hover:bg-muted/50 transition-colors">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-medium">{apt.patientName || "Unknown Patient"}</span>
+                            <Badge variant={
+                              apt.status === "scheduled" ? "secondary" :
+                              apt.status === "checked_in" ? "default" :
+                              apt.status === "completed" ? "outline" : "secondary"
+                            }>
+                              {apt.status || "scheduled"}
+                            </Badge>
+                          </div>
+                          <div className="text-sm text-muted-foreground space-y-1">
+                            <div className="flex items-center gap-1.5">
+                              <Calendar className="h-3.5 w-3.5" />
+                              <span>{dateStr}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-medium">{timeStr}</span>
+                            </div>
+                            {apt.reason && (
+                              <div className="text-xs mt-1">
+                                Reason: {apt.reason}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+
+            {appointments.length > 0 && (
+              <div className="mt-4 pt-4 border-t text-sm text-muted-foreground text-center">
+                Showing {appointments.length} upcoming {appointments.length === 1 ? "appointment" : "appointments"}
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>
