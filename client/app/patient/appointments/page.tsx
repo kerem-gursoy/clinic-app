@@ -23,6 +23,8 @@ interface PatientAppointmentResponse {
   time: string | null;
   duration: number | null;
   notes?: string | null;
+  procedure_code?: string | null;
+  amount?: number | null;
 }
 
 interface PatientAppointment {
@@ -35,6 +37,8 @@ interface PatientAppointment {
   displayTime: string;
   duration: number;
   notes?: string | null;
+  procedure_code?: string | null;
+  amount?: number | null;
 }
 
 export default function PatientAppointmentsPage() {
@@ -188,7 +192,10 @@ function AppointmentRow({ appointment }: { appointment: PatientAppointment }) {
             <span className="text-sm text-muted-foreground">{formattedDate}</span>
           </div>
 
-          <h3 className="font-semibold mb-1">{appointment.reason}</h3>
+          <div className="flex items-center gap-3 mb-1">
+            <h3 className="font-semibold">{appointment.procedure_code} — ${appointment.amount}</h3>
+            
+          </div>
 
           <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-sm text-muted-foreground">
             <div className="flex items-center gap-1.5">
@@ -292,6 +299,8 @@ function mapPatientAppointment(appt: PatientAppointmentResponse): PatientAppoint
     displayTime: formatTime(appt.start_at),
     duration: appt.duration ?? 0,
     notes: appt.notes ?? null,
+    procedure_code: appt.procedure_code ?? null,
+    amount: appt.amount ?? null,
   };
 }
 

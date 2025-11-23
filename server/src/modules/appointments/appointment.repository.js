@@ -35,12 +35,14 @@ export async function findAppointmentById(id) {
   return rows?.[0] ?? null;
 }
 
-export async function insertAppointment({ patientId, providerId, start, end, reason, status }) {
+export async function insertAppointment({ patientId, providerId, start, end, reason, status, procedureCode, amount }) {
   const doctorId = providerId && providerId !== "unassigned" ? providerId : null;
 
+  // If the `appointment` table does not yet have the `procedure_code` or `amount` columns,
+  // this INSERT will fail. Ensure the DB schema includes `procedure_code` and `amount`.
   const [result] = await pool.execute(
-    "INSERT INTO appointment (patient_id, doctor_id, start_at, end_at, reason, status) VALUES (?, ?, ?, ?, ?, ?)",
-    [patientId, doctorId, start, end, reason ?? null, status ?? "scheduled"]
+    "INSERT INTO appointment (patient_id, doctor_id, start_at, end_at, reason, status, procedure_code, amount) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+    [patientId, doctorId, start, end, reason ?? null, status ?? "scheduled", procedureCode ?? null, amount ?? null]
   );
 
   return result.insertId;
