@@ -120,7 +120,7 @@ export default function AppointmentReportPage() {
         if (filters.status && filters.status !== "all") params.set("status", filters.status);
         if (filters.capacityThreshold) params.set("capacityThreshold", String(filters.capacityThreshold));
 
-        const res = await fetch(apiPath(`/api/admin/reports/appointments?${params.toString()}`), {
+        const res = await fetch(apiPath(`/api/staff/reports/appointments?${params.toString()}`), {
           headers: token ? { Authorization: `Bearer ${token}` } : undefined,
           credentials: "include",
         });
