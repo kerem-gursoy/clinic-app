@@ -242,7 +242,7 @@ export default function StaffAppointmentsPage() {
     <>
       {/* Flash message (fixed, above dialogs) */}
       {flash ? (
-        <div className="fixed inset-x-0 top-4 z-[60] flex justify-center pointer-events-none px-4">
+        <div className="fixed inset-x-0 top-4 z-60 flex justify-center pointer-events-none px-4">
           <div
             role="status"
             className={`pointer-events-auto w-full max-w-3xl rounded-md p-3 border ${
