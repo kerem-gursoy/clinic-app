@@ -144,7 +144,17 @@ export default function PatientAppointmentsPage() {
               <h2 className="text-lg font-semibold mb-4">Upcoming</h2>
               <div className="bg-card rounded-xl border divide-y">
                 {upcomingAppointments.map((appointment) => (
-                  <AppointmentRow key={appointment.appointment_id} appointment={appointment} />
+                  <AppointmentRow
+                    key={appointment.appointment_id}
+                    appointment={appointment}
+                    onCancelSuccess={(id) => {
+                      setAppointments((prev) =>
+                        prev.map((apt) =>
+                          apt.appointment_id === id ? { ...apt, status: "canceled" } : apt
+                        )
+                      )
+                    }}
+                  />
                 ))}
               </div>
             </section>
@@ -156,7 +166,17 @@ export default function PatientAppointmentsPage() {
               <h2 className="text-lg font-semibold mb-4">Past</h2>
               <div className="bg-card rounded-xl border divide-y">
                 {pastAppointments.map((appointment) => (
-                  <AppointmentRow key={appointment.appointment_id} appointment={appointment} />
+                  <AppointmentRow
+                    key={appointment.appointment_id}
+                    appointment={appointment}
+                    onCancelSuccess={(id) => {
+                      setAppointments((prev) =>
+                        prev.map((apt) =>
+                          apt.appointment_id === id ? { ...apt, status: "canceled" } : apt
+                        )
+                      )
+                    }}
+                  />
                 ))}
               </div>
             </section>
@@ -167,7 +187,13 @@ export default function PatientAppointmentsPage() {
   )
 }
 
-function AppointmentRow({ appointment }: { appointment: PatientAppointment }) {
+function AppointmentRow({
+  appointment,
+  onCancelSuccess,
+}: {
+  appointment: PatientAppointment
+  onCancelSuccess: (id: number) => void
+}) {
   const appointmentDate = appointment.start_at ? new Date(appointment.start_at) : new Date()
   const [isOpen, setIsOpen] = useState(false)
   const formattedDate = appointmentDate.toLocaleDateString("en-US", {
@@ -261,10 +287,9 @@ function AppointmentRow({ appointment }: { appointment: PatientAppointment }) {
                       <CancelAppointmentForm
                         appointmentId={appointment.appointment_id}
                         onSuccess={() => {
+                          onCancelSuccess(appointment.appointment_id)
                           setShowCancelForm(false)
                           setIsOpen(false)
-                          // reload to reflect changed appointments list
-                          if (typeof window !== "undefined") window.location.reload()
                         }}
                         onCancel={() => setShowCancelForm(false)}
                       />

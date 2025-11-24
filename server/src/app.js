@@ -2,7 +2,6 @@ import "./config/env.js";
 import express from "express";
 import cors from "cors";
 import routes from "./routes/index.js";
-import reportsRouter from "./modules/reports/reports.router.js";
 import { allowedOrigins } from "./config/env.js";
 
 const app = express();
@@ -24,7 +23,6 @@ app.use(express.json());
 
 app.get("/health", (_req, res) => res.json({ ok: true }));
 
-app.use("/api/admin/reports", reportsRouter);
 app.use(routes);
 
 app.use((_req, res) => res.status(404).json({ error: "Not found" }));
