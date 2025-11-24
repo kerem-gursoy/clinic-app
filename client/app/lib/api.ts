@@ -6,13 +6,10 @@ const apiBaseUrl = (() => {
     if (!rawBaseUrl) {
       throw new Error("NEXT_PUBLIC_API_BASE_URL is missing at build time.");
     }
-    if (/^https?:\/\/(localhost|127\.0\.0\.1)(:|$)/i.test(rawBaseUrl)) {
-      throw new Error(`Invalid NEXT_PUBLIC_API_BASE_URL for production: ${rawBaseUrl}`);
-    }
     return rawBaseUrl;
   }
 
-  return rawBaseUrl ?? "http://localhost:3000";
+  return rawBaseUrl ?? "http://localhost:8080";
 })();
 
 export { apiBaseUrl };

@@ -206,20 +206,20 @@ function AppointmentRow({ appointment }: { appointment: PatientAppointment }) {
                     {appointment.notes && <p className="text-sm text-muted-foreground mt-2">{appointment.notes}</p>}
                 </div>
 
-                <Button variant="ghost" size="sm" onClick={() => setIsOpen(true)}>
-                    View
-                </Button>
+        <Button variant="ghost" size="sm" onClick={() => setIsOpen(true)}>
+          View
+        </Button>
 
+      </div>
+
+      <Dialog open={isOpen} onOpenChange={setIsOpen}>
+        <DialogContent className="max-w-md">
+          <div className="space-y-4">
+            <div>
+              <p className="text-sm text-muted-foreground">Appointment for</p>
+              <DialogTitle className="text-xl font-semibold">{appointment.reason}</DialogTitle>
+              <p className="text-sm text-muted-foreground">with {appointment.providerName}</p>
             </div>
-
-            <Dialog open={isOpen} onOpenChange={setIsOpen}>
-                <DialogContent className="max-w-md">
-                    <div className="space-y-4">
-                        <div>
-                            <p className="text-sm text-muted-foreground">Appointment for</p>
-                            <DialogTitle className="text-xl font-semibold">{appointment.reason}</DialogTitle>
-                            <p className="text-sm text-muted-foreground">with {appointment.providerName}</p>
-                        </div>
 
                         <div className="space-y-2 text-sm">
                             <div className="flex items-start justify-between gap-4 text-sm">
@@ -253,25 +253,25 @@ function AppointmentRow({ appointment }: { appointment: PatientAppointment }) {
                                         Cancel Appointment
                                     </Button>
 
-                                    <Dialog open={showCancelForm} onOpenChange={setShowCancelForm}>
-                                        <DialogContent>
-                                            <DialogHeader>
-                                                <DialogTitle>Cancel Appointment</DialogTitle>
-                                            </DialogHeader>
-                                            <CancelAppointmentForm
-                                                appointmentId={appointment.appointment_id}
-                                                onSuccess={() => {
-                                                    setShowCancelForm(false)
-                                                    setIsOpen(false)
-                                                    // reload to reflect changed appointments list
-                                                    if (typeof window !== "undefined") window.location.reload()
-                                                }}
-                                                onCancel={() => setShowCancelForm(false)}
-                                            />
-                                        </DialogContent>
-                                    </Dialog>
-                                </>
-                            )}
+                  <Dialog open={showCancelForm} onOpenChange={setShowCancelForm}>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Cancel Appointment</DialogTitle>
+                      </DialogHeader>
+                      <CancelAppointmentForm
+                        appointmentId={appointment.appointment_id}
+                        onSuccess={() => {
+                          setShowCancelForm(false)
+                          setIsOpen(false)
+                          // reload to reflect changed appointments list
+                          if (typeof window !== "undefined") window.location.reload()
+                        }}
+                        onCancel={() => setShowCancelForm(false)}
+                      />
+                    </DialogContent>
+                  </Dialog>
+                </>
+              )}
 
                             <Button variant="outline" onClick={() => setIsOpen(false)}>
                                 Close
