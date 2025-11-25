@@ -89,11 +89,11 @@ export default function LoginPage() {
                                 <div className="flex items-center justify-between">
                                     <Label htmlFor="password">Password</Label>
                                 </div>
-                                <Input
-                                    id="password"
-                                    type="password"
-                                    placeholder="Enter your password"
-                                    value={password}
+                <Input
+                    id="password"
+                    type="password"
+                    placeholder="Enter your password"
+                    value={password}
                                     onChange={(e) => setPassword(e.target.value)}
                                     disabled={isLoading}
                                     required
@@ -105,13 +105,16 @@ export default function LoginPage() {
                                     className="w-full"
                                     disabled={isLoading}
                                 >
-                                    {isLoading ? "Signing in..." : "Sign In"}
-                                </Button>
-                            </div>
-                        </CardContent>
-                    </form>
-                </Card>
-            </div>
-        </div>
+                            {isLoading ? "Signing in..." : "Sign In"}
+                        </Button>
+                    </div>
+                    <div className="text-sm text-muted-foreground text-center">
+                      New patient? <a className="text-primary hover:underline" href="/auth/signup">Create an account</a>
+                    </div>
+                </CardContent>
+            </form>
+        </Card>
+    </div>
+</div>
     )
 }

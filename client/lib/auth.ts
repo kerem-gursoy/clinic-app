@@ -136,6 +136,49 @@ export async function login(email: string, password: string) {
   return { token: payload.token, user: authUser };
 }
 
+export async function signupPatient({
+  first_name,
+  last_name,
+  email,
+  password,
+  phone,
+  dob,
+  ssn,
+}: {
+  first_name: string;
+  last_name: string;
+  email: string;
+  password: string;
+  phone?: string;
+  dob?: string;
+  ssn: string;
+}) {
+  const response = await fetch(apiPath("auth/signup"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ first_name, last_name, email, password, phone, dob, ssn }),
+    credentials: "include",
+  });
+
+  const payload: Partial<LoginSuccessPayload> & { error?: string } = await response.json().catch(() => ({}));
+
+  if (!response.ok || !payload.token || !payload.user) {
+    const errorMessage = payload.error ?? "Unable to create account";
+    throw new Error(errorMessage);
+  }
+
+  const authUser: AuthUser = {
+    user_id: payload.user.user_id,
+    email: payload.user.email,
+    role: normalizeRole(payload.user.role),
+    first_name: payload.user.first_name,
+    last_name: payload.user.last_name,
+  };
+
+  persistAuth(payload.token, authUser);
+  return { token: payload.token, user: authUser };
+}
+
 export async function logout() {
   const token = getStoredToken();
   const headers: Record<string, string> = {};

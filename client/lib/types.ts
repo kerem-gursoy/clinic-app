@@ -70,12 +70,11 @@ export interface Medication {
 }
 
 export interface MedicalRecordQuery {
-  patientName?: string
-  diagnosis?: string
+  patientFirstName?: string
+  patientLastName?: string
   dateFrom?: string
   dateTo?: string
   symptoms?: string[]
-  medications?: string[]
   doctorId?: string
 }
 

@@ -14,6 +14,7 @@ import { apiPath } from "@/app/lib/api"
 interface NewAppointmentFormProps {
   onCancel?: () => void
   onSuccess?: () => void
+  onNotify?: (text: string, type?: "error" | "success") => void
   initialPatientId?: number
   initialPatientName?: string
 }
@@ -21,6 +22,7 @@ interface NewAppointmentFormProps {
 export function NewAppointmentForm({
   onCancel,
   onSuccess,
+  onNotify,
   initialPatientId,
   initialPatientName,
 }: NewAppointmentFormProps) {
@@ -35,7 +37,14 @@ export function NewAppointmentForm({
   const [start, setStart] = useState<string>("")
   const [duration, setDuration] = useState<number>(60)
   const [reason, setReason] = useState<string>("")
+  const [appointmentType, setAppointmentType] = useState<string>("consultation")
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const appointmentTypePrices: Record<string, number> = {
+    "Wellness check": 100,
+    "Sick Visit": 80,
+    "Lab Visit": 40,
+    "Vaccination": 30,
+  }
   const [minStartValue, setMinStartValue] = useState<string>("")
   const [doctors, setDoctors] = useState<Array<any>>([])
   const [doctorsLoading, setDoctorsLoading] = useState(false)
@@ -193,6 +202,8 @@ export function NewAppointmentForm({
         start: startDate.toISOString(),
         end: endDate.toISOString(),
         reason,
+        procedureCode: appointmentType,
+        amount: appointmentTypePrices[appointmentType] ?? null,
         status: "scheduled",
       }
 
@@ -317,6 +328,22 @@ export function NewAppointmentForm({
             </div>
           </div>
         )}
+
+        <div className="space-y-2">
+          <Label htmlFor="appointment-type">Appointment Type</Label>
+          <Select value={appointmentType} onValueChange={setAppointmentType}>
+            <SelectTrigger id="appointment-type">
+              <SelectValue placeholder="Select type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Wellness check">Wellness check — $100</SelectItem>
+              <SelectItem value="Sick Visit">Sick Visit — $80</SelectItem>
+              <SelectItem value="Lab Visit">Lab Visit — $40</SelectItem>
+              <SelectItem value="Vaccination">Vaccination — $30</SelectItem>
+            </SelectContent>
+          </Select>
+          <div className="text-sm text-muted-foreground mt-2">Price: ${appointmentTypePrices[appointmentType] ?? "—"}</div>
+        </div>
 
         <div className="space-y-2">
           <Label htmlFor="start">Start Date & Time</Label>

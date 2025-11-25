@@ -11,6 +11,37 @@ export async function getAppointmentById(id) {
 }
 
 export async function createAppointment(payload) {
+  const { patientId, providerId, start, end, procedureCode, amount } = payload;
+
+  // Check for overlapping appointments for the patient
+  if (patientId) {
+    const [rows] = await pool.query(
+      `SELECT 1 FROM appointment WHERE patient_id = ? AND NOT (end_at <= ? OR start_at >= ?) LIMIT 1`,
+      [patientId, start, end]
+    );
+    if (rows && rows.length) {
+      const err = new Error("Patient already has an appointment at that time");
+      // attach an HTTP status so controller can respond appropriately
+      err.status = 409;
+      throw err;
+    }
+  }
+
+  // Check for overlapping appointments for the doctor (if assigned)
+  const doctorId = providerId && providerId !== "unassigned" ? providerId : null;
+  if (doctorId) {
+    const [rows] = await pool.query(
+      `SELECT 1 FROM appointment WHERE doctor_id = ? AND NOT (end_at <= ? OR start_at >= ?) LIMIT 1`,
+      [doctorId, start, end]
+    );
+    if (rows && rows.length) {
+      const err = new Error("Doctor already has an appointment at that time");
+      err.status = 409;
+      throw err;
+    }
+  }
+
+  // forward payload (including optional procedureCode and amount) to repository
   return appointmentRepository.insertAppointment(payload);
 }
 
@@ -49,14 +80,19 @@ export async function getRecentPatientAppointments(patientId, { limit = 50 } = {
   return rows.map((row) => ({
     appointment_id: row.appointment_id ?? 0,
     patient_id: row.patient_id ?? patientId,
+    doctor_id: row.doctor_id ?? null,
     provider_id: row.doctor_id ?? null,
     providerName: buildName(row.doc_fname, row.doc_lname),
+    doctor_name: buildName(row.doc_fname, row.doc_lname),
     reason: row.reason ?? null,
     status: row.status ?? null,
     start_at: row.start_at ?? null,
+    end_at: row.end_at ?? null,
     time: formatAppointmentTime(row.start_at ?? null),
     duration: calculateDuration(row.start_at ?? null, row.end_at ?? null),
     notes: row.notes ?? null,
+    procedure_code: row.procedure_code ?? null,
+    amount: row.amount ?? null,
   }));
 }
 
@@ -85,6 +121,8 @@ export async function getRecentDoctorAppointments(doctorId, { limit = 50 } = {})
     time: formatAppointmentTime(row.start_at ?? null),
     duration: calculateDuration(row.start_at ?? null, row.end_at ?? null),
     notes: row.notes ?? null,
+    procedure_code: row.procedure_code ?? null,
+    amount: row.amount ?? null,
   }));
 }
 
@@ -114,6 +152,8 @@ export async function getRecentStaffAppointments({ limit = 100 } = {}) {
     time: formatAppointmentTime(row.start_at ?? null),
     duration: calculateDuration(row.start_at ?? null, row.end_at ?? null),
     notes: row.notes ?? null,
+    procedure_code: row.procedure_code ?? null,
+    amount: row.amount ?? null,
   }));
 }
 

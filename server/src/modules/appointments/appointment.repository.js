@@ -35,30 +35,51 @@ export async function findAppointmentById(id) {
   return rows?.[0] ?? null;
 }
 
-export async function insertAppointment({ patientId, providerId, start, end, reason, status }) {
+export async function insertAppointment({ patientId, providerId, start, end, reason, status, procedureCode, amount }) {
   const doctorId = providerId && providerId !== "unassigned" ? providerId : null;
 
+  // If the `appointment` table does not yet have the `procedure_code` or `amount` columns,
+  // this INSERT will fail. Ensure the DB schema includes `procedure_code` and `amount`.
   const [result] = await pool.execute(
-    "INSERT INTO appointment (patient_id, doctor_id, start_at, end_at, reason, status) VALUES (?, ?, ?, ?, ?, ?)",
-    [patientId, doctorId, start, end, reason ?? null, status ?? "scheduled"]
+    "INSERT INTO appointment (patient_id, doctor_id, start_at, end_at, reason, status, procedure_code, amount) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+    [patientId, doctorId, start, end, reason ?? null, status ?? "scheduled", procedureCode ?? null, amount ?? null]
   );
 
   return result.insertId;
 }
 
 export async function updateAppointment(id, patch) {
-  const [result] = await pool.execute(
-    "UPDATE appointment SET start_at=?, end_at=?, status=?, reason=? WHERE appointment_id=?",
-    [patch.start, patch.end, patch.status, patch.reason, id]
-  );
-  return result;
+    // Build UPDATE dynamically to avoid sending undefined values to the driver
+    const fields = [];
+    const params = [];
+
+    if (Object.prototype.hasOwnProperty.call(patch, "status")) {
+        fields.push("status = ?");
+        params.push(patch.status);
+    }
+
+    if (Object.prototype.hasOwnProperty.call(patch, "reason")) {
+        // normalize undefined -> null explicitly
+        params.push(patch.reason == null ? null : patch.reason);
+        fields.push("reason = ?");
+    }
+
+    if (fields.length === 0) {
+        // nothing to update
+        return null;
+    }
+    params.push(id); // WHERE param
+
+    const sql = `UPDATE appointment SET ${fields.join(", ")} WHERE appointment_id = ?`;
+    const [result] = await pool.execute(sql, params);
+    return result;
 }
 
 export async function deleteAppointment(id) {
   await pool.execute("DELETE FROM appointment WHERE appointment_id=?", [id]);
 }
 
-export async function listAppointmentsForPatient(patientId, { startDate, endDate, status } = {}) {
+export async function listAppointmentsForPatient(patientId, { startDate, endDate, status, amount } = {}) {
   let sql = `
     SELECT
       a.*,
@@ -86,7 +107,7 @@ export async function listAppointmentsForPatient(patientId, { startDate, endDate
     sql += " AND a.status = ?";
     params.push(status);
   }
-
+  
   sql += " ORDER BY a.start_at ASC";
 
   const [rows] = await pool.query(sql, params);

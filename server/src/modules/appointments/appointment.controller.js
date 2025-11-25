@@ -39,24 +39,37 @@ export async function createAppointment(req, res, next) {
       end: payload.end,
       reason: payload.reason ?? null,
       status: payload.status ?? "scheduled",
+      procedureCode: payload.procedureCode ?? null,
+      amount: payload.amount ?? null,
     });
 
     return res.status(201).json({ id: appointmentId });
   } catch (err) {
     console.error("Appointment creation error:", err);
-    return res.status(500).json({ error: err?.message ?? "Failed to create appointment" });
+    const status = err && err.status ? err.status : 500;
+    return res.status(status).json({ error: err?.message ?? "Failed to create appointment" });
   }
 }
 
 export async function updateAppointment(req, res, next) {
-  try {
-    const id = Number(req.params.id);
-    await appointmentService.updateAppointment(id, req.body ?? {});
-    res.status(204).end();
-  } catch (err) {
-    next(err);
-  }
+    try {
+        const id = Number(req.params.id);
+        const patch = req.body ?? {};
+
+        // Validate at least one known updatable field exists
+        const updatable = ["status", "reason"];
+        const hasUpdate = updatable.some((k) => Object.prototype.hasOwnProperty.call(patch, k));
+        if (!hasUpdate) {
+            return res.status(400).json({ error: "No updatable fields provided" });
+        }
+
+        await appointmentService.updateAppointment(id, patch);
+        res.status(204).end();
+    } catch (err) {
+        next(err);
+    }
 }
+
 
 export async function deleteAppointment(req, res, next) {
   try {
