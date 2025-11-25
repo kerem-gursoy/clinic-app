@@ -6,7 +6,6 @@ const DEFAULT_ALLOWED_ORIGINS = [
   "http://localhost:3000",
   "http://localhost:3001",
   "http://localhost:5173",
-  "https://prodv4.d3w4bg0wlypycu.amplifyapp.com",
 ];
 
 export const allowedOrigins = (process.env.ALLOWED_ORIGINS ?? DEFAULT_ALLOWED_ORIGINS.join(","))
@@ -24,3 +23,15 @@ export function getJwtSecret() {
   return secret;
 }
 
+export function getEmailConfig() {
+  return {
+    enabled: process.env.EMAIL_ENABLED === "true",
+    host: process.env.EMAIL_HOST || "smtp.gmail.com",
+    port: Number(process.env.EMAIL_PORT || 587),
+    secure: process.env.EMAIL_SECURE === "true",
+    user: process.env.EMAIL_USER || "",
+    password: process.env.EMAIL_PASSWORD || "",
+    fromEmail: process.env.EMAIL_FROM || "noreply@clinic.com",
+    fromName: process.env.EMAIL_FROM_NAME || "Clinic Appointment System",
+  };
+}
