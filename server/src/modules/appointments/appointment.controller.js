@@ -39,6 +39,8 @@ export async function createAppointment(req, res, next) {
       end: payload.end,
       reason: payload.reason ?? null,
       status: payload.status ?? "scheduled",
+      procedureCode: payload.procedureCode ?? null,
+      amount: payload.amount ?? null,
     });
 
     return res.status(201).json({ id: appointmentId });

@@ -11,7 +11,7 @@ export async function getAppointmentById(id) {
 }
 
 export async function createAppointment(payload) {
-  const { patientId, providerId, start, end } = payload;
+  const { patientId, providerId, start, end, procedureCode, amount } = payload;
 
   // Check for overlapping appointments for the patient
   if (patientId) {
@@ -41,6 +41,7 @@ export async function createAppointment(payload) {
     }
   }
 
+  // forward payload (including optional procedureCode and amount) to repository
   return appointmentRepository.insertAppointment(payload);
 }
 
@@ -90,6 +91,8 @@ export async function getRecentPatientAppointments(patientId, { limit = 50 } = {
     time: formatAppointmentTime(row.start_at ?? null),
     duration: calculateDuration(row.start_at ?? null, row.end_at ?? null),
     notes: row.notes ?? null,
+    procedure_code: row.procedure_code ?? null,
+    amount: row.amount ?? null,
   }));
 }
 
@@ -118,6 +121,8 @@ export async function getRecentDoctorAppointments(doctorId, { limit = 50 } = {})
     time: formatAppointmentTime(row.start_at ?? null),
     duration: calculateDuration(row.start_at ?? null, row.end_at ?? null),
     notes: row.notes ?? null,
+    procedure_code: row.procedure_code ?? null,
+    amount: row.amount ?? null,
   }));
 }
 
@@ -147,6 +152,8 @@ export async function getRecentStaffAppointments({ limit = 100 } = {}) {
     time: formatAppointmentTime(row.start_at ?? null),
     duration: calculateDuration(row.start_at ?? null, row.end_at ?? null),
     notes: row.notes ?? null,
+    procedure_code: row.procedure_code ?? null,
+    amount: row.amount ?? null,
   }));
 }
 

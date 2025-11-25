@@ -6,5 +6,6 @@ const router = Router();
 
 // TODO: Add auth middleware
 router.get("/appointments", reportsController.getAppointmentReport);
+router.get("/revenue", reportsController.getRevenueReport);
 
 export default router;
