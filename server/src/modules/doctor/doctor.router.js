@@ -7,7 +7,9 @@ import {
   getPatientAppointmentsForDoctor,
   getPatientMedicationsForDoctor,
   getPatientAllergiesForDoctor,
-  getPatientMedicalHistoryForDoctor
+  getPatientMedicalHistoryForDoctor,
+  updateDoctorProfile,
+  changeDoctorPassword
 } from "./doctor.controller.js";
 
 const router = Router();
@@ -19,6 +21,8 @@ router.get("/doctor/patients/:patientId/appointments", requireAuth, requireRole(
 router.get("/doctor/patients/:patientId/medications", requireAuth, requireRole("DOCTOR"), getPatientMedicationsForDoctor);
 router.get("/doctor/patients/:patientId/allergies", requireAuth, requireRole("DOCTOR"), getPatientAllergiesForDoctor);
 router.get("/doctor/patients/:patientId/medical-history", requireAuth, requireRole("DOCTOR"), getPatientMedicalHistoryForDoctor);
+router.put("/doctor/profile", requireAuth, requireRole("DOCTOR"), updateDoctorProfile);
+router.put("/doctor/password", requireAuth, requireRole("DOCTOR"), changeDoctorPassword);
 
 export default router;
 

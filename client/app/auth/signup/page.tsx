@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Calendar, AlertCircle } from "lucide-react"
 import { signupPatient } from "@/lib/auth"
+import { formatPhoneNumber } from "@/lib/utils"
 
 export default function SignupPage() {
   const router = useRouter()
@@ -26,13 +27,38 @@ export default function SignupPage() {
     setError("")
     setIsLoading(true)
 
+    const hasUpperCase = /[A-Z]/.test(password)
+    const hasSpecialChar = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)
+    
+    if (!hasUpperCase || !hasSpecialChar) {
+      setError("Password must contain at least one uppercase letter and one special character")
+      setIsLoading(false)
+      return
+    }
+
+    if (dob) {
+      const birthDate = new Date(dob)
+      const today = new Date()
+      const age = today.getFullYear() - birthDate.getFullYear()
+      const monthDiff = today.getMonth() - birthDate.getMonth()
+      const dayDiff = today.getDate() - birthDate.getDate()
+      
+      const actualAge = monthDiff < 0 || (monthDiff === 0 && dayDiff < 0) ? age - 1 : age
+      
+      if (actualAge < 18) {
+        setError("You must be at least 18 years old to create an account")
+        setIsLoading(false)
+        return
+      }
+    }
+
     try {
       await signupPatient({
         first_name: firstName,
         last_name: lastName,
         email,
         password,
-        phone: phone || undefined,
+        phone: phone.replace(/\D/g, "") || undefined,
         dob,
       })
       router.push("/patient/appointments")
@@ -74,7 +100,10 @@ export default function SignupPage() {
                   <Input
                     id="firstName"
                     value={firstName}
-                    onChange={(e) => setFirstName(e.target.value)}
+                    onChange={(e) => {
+                      const value = e.target.value
+                      setFirstName(value.charAt(0).toUpperCase() + value.slice(1))
+                    }}
                     required
                     disabled={isLoading}
                   />
@@ -84,7 +113,10 @@ export default function SignupPage() {
                   <Input
                     id="lastName"
                     value={lastName}
-                    onChange={(e) => setLastName(e.target.value)}
+                    onChange={(e) => {
+                      const value = e.target.value
+                      setLastName(value.charAt(0).toUpperCase() + value.slice(1))
+                    }}
                     required
                     disabled={isLoading}
                   />
@@ -109,7 +141,7 @@ export default function SignupPage() {
                 <Input
                   id="password"
                   type="password"
-                  placeholder="At least 6 characters"
+                  placeholder="Must include uppercase and special character"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
@@ -123,8 +155,12 @@ export default function SignupPage() {
                 <Input
                   id="phone"
                   type="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="(555) 123-4567"
+                  value={formatPhoneNumber(phone)}
+                  onChange={(e) => {
+                    const rawDigits = e.target.value.replace(/\D/g, "")
+                    setPhone(rawDigits)
+                  }}
                   disabled={isLoading}
                 />
               </div>
@@ -136,11 +172,28 @@ export default function SignupPage() {
                   type="date"
                   value={dob}
                   onChange={(e) => setDob(e.target.value)}
+                  max={new Date(new Date().setFullYear(new Date().getFullYear() - 18)).toISOString().split('T')[0]}
                   disabled={isLoading}
                   required
                 />
               </div>
 
+              <div className="space-y-2">
+                <Label htmlFor="ssn">SSN (9 digits)</Label>
+                <Input
+                  id="ssn"
+                  type="text"
+                  placeholder="9 digits"
+                  value={ssn}
+                  onChange={(e) => {
+                    const digits = e.target.value.replace(/\D/g, "").slice(0, 9)
+                    setSsn(digits)
+                  }}
+                  maxLength={9}
+                  disabled={isLoading}
+                  required
+                />
+              </div>
 
               <div className="mt-4">
                 <Button type="submit" className="w-full" disabled={isLoading}>
