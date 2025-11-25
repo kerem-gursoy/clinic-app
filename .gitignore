@@ -20,8 +20,8 @@ server/.env
 # Database files
 *.sql
 *.db
-*.sqlite
-*.sqlite3
+schema.sql
+.gitattributes
 
 build/
 dist/
@@ -38,16 +38,12 @@ client/next-env.d.ts
 .DS_Store
 Thumbs.db
 
-# IDE/Editor
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
 
-# Backup files
 *.backup
 *.bak
 *.old
-
-schema.sql
