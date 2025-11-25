@@ -9,7 +9,7 @@ const apiBaseUrl = (() => {
     return rawBaseUrl;
   }
 
-  return rawBaseUrl ?? "http://localhost:3000";
+  return rawBaseUrl ?? "http://localhost:8080";
 })();
 
 export { apiBaseUrl };

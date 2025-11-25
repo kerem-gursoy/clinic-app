@@ -49,6 +49,8 @@ interface StaffAppointmentResponse {
   time: string | null
   duration: number | null
   notes?: string | null
+  procedure_code?: string | null
+  amount?: number | null
 }
 
 interface StaffAppointmentItem {
@@ -64,6 +66,8 @@ interface StaffAppointmentItem {
   duration: number
   reason: string
   notes?: string | null
+  procedureCode?: string | null
+  amount?: number | null
 }
 
 export default function StaffAppointmentsPage() {
@@ -243,7 +247,7 @@ export default function StaffAppointmentsPage() {
     <>
       {/* Flash message (fixed, above dialogs) */}
       {flash ? (
-        <div className="fixed inset-x-0 top-4 z-[60] flex justify-center pointer-events-none px-4">
+        <div className="fixed inset-x-0 top-4 z-60 flex justify-center pointer-events-none px-4">
           <div
             role="status"
             className={`pointer-events-auto w-full max-w-3xl rounded-md p-3 border ${
@@ -432,7 +436,13 @@ function WeekView({ appointments, currentDate }: { appointments: StaffAppointmen
                       <div className="text-xs font-medium mb-1">{apt.time}</div>
                       <div className="text-sm font-semibold">{apt.patientName}</div>
                       <div className="text-xs text-muted-foreground">Dr. {apt.doctorName}</div>
-                      <div className="text-xs text-muted-foreground">{apt.reason}</div>
+                                  <div className="text-xs text-muted-foreground">{apt.reason}</div>
+                                  {apt.procedureCode && (
+                                    <div className="text-xs text-muted-foreground">Procedure: {apt.procedureCode}</div>
+                                  )}
+                                  {typeof apt.amount === "number" && (
+                                    <div className="text-xs text-muted-foreground">Amount: ${Number(apt.amount).toFixed(2)}</div>
+                                  )}
                     </div>
                   ))}
                 </div>
@@ -561,7 +571,9 @@ function AgendaListItem({ appointment, onRefresh }: { appointment: StaffAppointm
           </div>
 
           <h3 className="font-semibold mb-1">{appointment.patientName}</h3>
-
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-sm text-muted-foreground">
+                <span>{appointment.procedureCode} ${appointment.amount}</span>
+              </div>
           <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-sm text-muted-foreground">
             <div className="flex items-center gap-1.5">
               <Clock className="h-4 w-4" />
@@ -572,6 +584,7 @@ function AgendaListItem({ appointment, onRefresh }: { appointment: StaffAppointm
             <div className="flex items-center gap-1.5">
               <User className="h-4 w-4" />
               <span>Dr. {appointment.doctorName}</span>
+              
             </div>
           </div>
 
@@ -597,6 +610,8 @@ function AgendaListItem({ appointment, onRefresh }: { appointment: StaffAppointm
               <DetailRow label="Date" value={formattedDate} />
               <DetailRow label="Time" value={`${formattedTime} (${appointment.duration} min)`} />
               <DetailRow label="Reason" value={appointment.reason} />
+              <DetailRow label="Procedure" value={appointment.procedureCode ?? "—"} />
+              <DetailRow label="Amount" value={appointment.amount != null ? `$${Number(appointment.amount).toFixed(2)}` : "—"} />
               {appointment.notes && <DetailRow label="Notes" value={appointment.notes} />}
             </div>
 
@@ -667,6 +682,8 @@ function mapStaffAppointment(appt: StaffAppointmentResponse): StaffAppointmentIt
     duration: appt.duration ?? 0,
     reason: appt.reason ?? "General visit",
     notes: appt.notes ?? null,
+    procedureCode: appt.procedure_code ?? null,
+    amount: appt.amount ?? null,
   }
 }
 

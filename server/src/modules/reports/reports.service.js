@@ -60,6 +60,65 @@ export async function getAppointmentReport() {
     };
 }
 
+export async function getRevenueReport({ startDate, endDate } = {}) {
+    // Returns total revenue and breakdown by doctor and by month
+    // The `amount` column is expected to be numeric (DECIMAL). If not present, returns zeros.
+    const params = [];
+    let where = "";
+    if (startDate) {
+        where += " AND a.start_at >= ?";
+        params.push(startDate);
+    }
+    if (endDate) {
+        where += " AND a.start_at <= ?";
+        params.push(endDate);
+    }
+
+    // Only consider completed appointments for revenue
+    // Build params with the status filter first
+    params.unshift('completed');
+    const [rows] = await pool.query(
+        `SELECT a.amount, a.procedure_code, a.start_at, p.patient_fname, p.patient_lname,
+                d.doctor_id, d.doc_fname, d.doc_lname, DATE_FORMAT(a.start_at, '%Y-%m') as ym
+         FROM appointment a
+         LEFT JOIN doctor d ON a.doctor_id = d.doctor_id
+         LEFT JOIN patient p ON a.patient_id = p.patient_id
+         WHERE a.status = ? ${where}`,
+        params
+    );
+
+    let totalRevenue = 0;
+    const revenueByDoctor = {};
+    const revenueByMonth = {};
+
+    rows.forEach((r) => {
+        const amt = r.amount != null ? Number(r.amount) : 0;
+        totalRevenue += amt;
+
+        const docName = r.doc_fname || r.doc_lname ? `${r.doc_fname || ''} ${r.doc_lname || ''}`.trim() : 'Unassigned';
+        revenueByDoctor[docName] = (revenueByDoctor[docName] || 0) + amt;
+
+        const ym = r.ym || 'unknown';
+        revenueByMonth[ym] = (revenueByMonth[ym] || 0) + amt;
+    });
+
+    // Build appointments list for display
+    const appointments = rows.map((r) => ({
+        patientName: r.patient_fname || r.patient_lname ? `${r.patient_fname || ''} ${r.patient_lname || ''}`.trim() : 'Unknown',
+        doctorName: r.doc_fname || r.doc_lname ? `${r.doc_fname || ''} ${r.doc_lname || ''}`.trim() : 'Unassigned',
+        procedure_code: r.procedure_code ?? null,
+        amount: r.amount != null ? Number(r.amount) : null,
+        start_at: r.start_at ? new Date(r.start_at).toISOString() : null,
+    }));
+
+    return {
+        totalRevenue: Number(totalRevenue.toFixed(2)),
+        revenueByDoctor: Object.entries(revenueByDoctor).map(([name, amount]) => ({ name, amount: Number(amount.toFixed(2)) })),
+        revenueByMonth: Object.entries(revenueByMonth).map(([month, amount]) => ({ month, amount: Number(amount.toFixed(2)) })),
+        appointments,
+    };
+}
+
 function getGenderLabel(genderId) {
     // Assuming 1=Female, 2=Male based on typical schema, or map as needed
     // If gender is stored as ID, we might need a lookup or assumption.
