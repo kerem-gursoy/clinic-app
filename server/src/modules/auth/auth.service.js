@@ -43,7 +43,7 @@ export function signToken(user) {
   return jwt.sign(user, getJwtSecret(), { expiresIn: "7d" });
 }
 
-export async function registerPatient({ firstName, lastName, email, password, phone, dob, ssn }) {
+export async function registerPatient({ firstName, lastName, email, password, phone, dob }) {
   if (!password || password.length < 6) {
     const err = new Error("Password must be at least 6 characters");
     err.statusCode = 400;
@@ -51,11 +51,6 @@ export async function registerPatient({ firstName, lastName, email, password, ph
   }
   if (!dob) {
     const err = new Error("Date of birth is required");
-    err.statusCode = 400;
-    throw err;
-  }
-  if (!ssn) {
-    const err = new Error("SSN is required");
     err.statusCode = 400;
     throw err;
   }

@@ -19,7 +19,6 @@ export default function SignupPage() {
   const [password, setPassword] = useState("")
   const [phone, setPhone] = useState("")
   const [dob, setDob] = useState("")
-  const [ssn, setSsn] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
 
@@ -61,7 +60,6 @@ export default function SignupPage() {
         password,
         phone: phone.replace(/\D/g, "") || undefined,
         dob,
-        ssn,
       })
       router.push("/patient/appointments")
     } catch (err) {

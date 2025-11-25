@@ -27,7 +27,7 @@ export async function createPatient(data) {
         patient_fname, patient_lname, patient_minit, dob, patient_ssn, gender,
         phone, address_id, balance, created_at, created_by,
         med_id, patient_email, prim_doctor
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, ?, ?, ?)`,
       [
         data.patient_fname,
         data.patient_lname,
