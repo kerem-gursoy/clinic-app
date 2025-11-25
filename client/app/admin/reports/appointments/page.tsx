@@ -66,6 +66,14 @@ const STATUS_OPTIONS = [
 
 const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884d8"];
 
+type FiltersState = {
+  dateFrom: string;
+  dateTo: string;
+  providerId: string;
+  status: string;
+  capacityThreshold: number;
+};
+
 export default function AppointmentReportPage() {
   const defaultEnd = useMemo(() => new Date(), []);
   const defaultStart = useMemo(() => {
@@ -74,7 +82,7 @@ export default function AppointmentReportPage() {
     return d;
   }, []);
 
-  const [filters, setFilters] = useState({
+  const [filters, setFilters] = useState<FiltersState>({
     dateFrom: formatInputDate(defaultStart),
     dateTo: formatInputDate(defaultEnd),
     providerId: "all",
@@ -120,13 +128,13 @@ export default function AppointmentReportPage() {
         if (filters.status && filters.status !== "all") params.set("status", filters.status);
         if (filters.capacityThreshold) params.set("capacityThreshold", String(filters.capacityThreshold));
 
-        const res = await fetch(apiPath(`/api/staff/reports/appointments?${params.toString()}`), {
+        const res = await fetch(apiPath(`/staff/reports/appointments?${params.toString()}`), {
           headers: token ? { Authorization: `Bearer ${token}` } : undefined,
           credentials: "include",
         });
         if (!res.ok) throw new Error("Failed to fetch report data");
         const json = await res.json();
-        setData(json);
+        setData(normalizeReportResponse(json, filters));
       } catch (err) {
         setError((err as Error).message);
       } finally {
@@ -436,6 +444,115 @@ function formatInputDate(date: Date) {
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+function normalizeReportResponse(serverData: any, filters: FiltersState): ReportData {
+  const statusDistribution = Array.isArray(serverData?.statusDistribution)
+    ? serverData.statusDistribution
+    : [];
+  const appointmentsByDoctor = Array.isArray(serverData?.appointmentsByDoctor)
+    ? serverData.appointmentsByDoctor
+    : [];
+  const genderByDoctor = Array.isArray(serverData?.genderByDoctor) ? serverData.genderByDoctor : [];
+  const totals =
+    serverData?.totals ??
+    buildTotalsFromLegacyData(serverData, statusDistribution, appointmentsByDoctor);
+  const previousTotals = serverData?.previousTotals ?? totals;
+  const deltas = serverData?.deltas ?? createEmptyTotals();
+  const providerLoad = Array.isArray(serverData?.providerLoad)
+    ? serverData.providerLoad
+    : buildProviderLoadFallback(appointmentsByDoctor);
+  const heavyDays = Array.isArray(serverData?.heavyDays) ? serverData.heavyDays : [];
+  const range = serverData?.range ?? { start: filters.dateFrom, end: filters.dateTo };
+  const previousRange = serverData?.previousRange ?? range;
+  const filtersApplied =
+    serverData?.filtersApplied ??
+    {
+      dateFrom: filters.dateFrom,
+      dateTo: filters.dateTo,
+      providerId: filters.providerId === "all" ? null : Number(filters.providerId),
+      status: filters.status === "all" ? null : filters.status,
+      capacityThreshold: filters.capacityThreshold,
+    };
+
+  return {
+    range,
+    previousRange,
+    totals,
+    previousTotals,
+    deltas,
+    appointmentsByDoctor,
+    statusDistribution,
+    genderByDoctor,
+    providerLoad,
+    heavyDays,
+    filtersApplied,
+  };
+}
+
+function createEmptyTotals(): ReportTotals {
+  return {
+    totalAppointments: 0,
+    completionRate: 0,
+    cancelRate: 0,
+    noShowRate: 0,
+    averageLeadTimeDays: 0,
+  };
+}
+
+function buildTotalsFromLegacyData(
+  serverData: any,
+  statusDistribution: { name: string; value: number }[],
+  appointmentsByDoctor: { name: string; count: number }[]
+): ReportTotals {
+  const totals = createEmptyTotals();
+  const totalFromStatus = statusDistribution.reduce(
+    (sum, entry) => sum + (typeof entry.value === "number" ? entry.value : 0),
+    0
+  );
+  const totalFromDoctor = appointmentsByDoctor.reduce(
+    (sum, entry) => sum + (typeof entry.count === "number" ? entry.count : 0),
+    0
+  );
+  totals.totalAppointments =
+    typeof serverData?.totalAppointments === "number"
+      ? serverData.totalAppointments
+      : Math.max(totalFromStatus, totalFromDoctor);
+
+  const total = totals.totalAppointments || 0;
+  const getRate = (status: string) => {
+    if (!total) return 0;
+    const entry = statusDistribution.find(
+      (s) => String(s.name).toLowerCase() === status.toLowerCase()
+    );
+    const value = entry && typeof entry.value === "number" ? entry.value : 0;
+    return (value / total) * 100;
+  };
+  totals.completionRate = getRate("completed");
+  totals.cancelRate = getRate("canceled");
+
+  totals.noShowRate = Math.max(
+    getRate("no_show"),
+    getRate("no-show"),
+    getRate("no show"),
+    getRate("noshow")
+  );
+
+  totals.averageLeadTimeDays =
+    typeof serverData?.averageLeadTimeDays === "number" ? serverData.averageLeadTimeDays : 0;
+
+  return totals;
+}
+
+function buildProviderLoadFallback(
+  appointmentsByDoctor: { name: string; count: number }[]
+): { doctor: string; loadPerHour: number; appointments: number; totalMinutes: number }[] {
+  return appointmentsByDoctor.map((entry) => ({
+    doctor: entry.name,
+    loadPerHour: 0,
+    appointments: typeof entry.count === "number" ? entry.count : 0,
+    totalMinutes: (typeof entry.count === "number" ? entry.count : 0) * 30,
+  }));
 }
 
 function Delta({ value, suffix }: { value: number; suffix?: string }) {

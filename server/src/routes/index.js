@@ -17,7 +17,7 @@ router.use(doctorRoutes);
 router.use(staffRoutes);
 router.use(profileRoutes);
 router.use("/appointments", appointmentRoutes);
-router.use("/api/admin/reports", reportsRouter);
-router.use("/api/staff/reports", reportsRouter);
+router.use("/admin/reports", reportsRouter);
+router.use("/staff/reports", reportsRouter);
 
 export default router;

@@ -22,3 +22,13 @@ export async function getAppointmentReport(req, res, next) {
     next(err);
   }
 }
+
+export async function getRevenueReport(req, res, next) {
+  try {
+    const { startDate, endDate } = req.query;
+    const data = await reportsService.getRevenueReport({ startDate, endDate });
+    res.json(data);
+  } catch (err) {
+    next(err);
+  }
+}
