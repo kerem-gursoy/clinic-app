@@ -21,7 +21,6 @@ server/.env
 *.sql
 *.db
 schema.sql
-.gitattributes
 
 build/
 dist/
