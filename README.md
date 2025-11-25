@@ -5,7 +5,7 @@
 - https://clinicdb.online (sometimes)
 
 ## Quick Setup Guide
-- Install dependencies: `npm install`
+- Install dependencies: `npm install`, `npm install nodemailer`
 - Start dev servers: `npm run dev`
 - Environment: configure `.env.local` for the client and server `.env`/DB creds (MySQL)
 - Database: ensure MySQL is running
