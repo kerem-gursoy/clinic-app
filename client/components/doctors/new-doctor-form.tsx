@@ -21,11 +21,8 @@ export function NewDoctorForm({ onCancel, onSuccess, doctorId }: NewDoctorFormPr
   const [lastName, setLastName] = useState("")
   const [middleInitial, setMiddleInitial] = useState("")
   const [email, setEmail] = useState("")
-  // phone stores raw digits; displayed formatted
   const [phone, setPhone] = useState("")
-  // gender stored as string "1"|"2"|"3"
   const [gender, setGender] = useState("")
-  // licenseNumber stores only digits (up to 5). display uses formatLicenseNumber(licenseNumber)
   const [licenseNumber, setLicenseNumber] = useState("")
   const [ssn, setSsn] = useState("")
   const [password, setPassword] = useState("")
