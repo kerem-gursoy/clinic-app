@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -10,22 +10,31 @@ import { formatPhoneNumber, formatLicenseNumber } from "@/lib/utils"
 import { Trash2 } from "lucide-react"
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select"
 
-interface NewDoctorFormProps {
-  doctorId?: number
-  onCancel?: () => void
-  onSuccess?: () => void
+interface Doctor {
+  doctor_id: number
+  doc_fname: string
+  doc_lname: string
+  doc_minit?: string | null
+  email: string
+  phone?: string | null
+  gender?: number | null
+  license_no?: string | null
+  ssn?: string | null
 }
 
-export function NewDoctorForm({ onCancel, onSuccess, doctorId }: NewDoctorFormProps) {
+interface NewDoctorFormProps {
+  onCancel?: () => void
+  onSuccess?: () => void
+  doctor?: Doctor
+}
+
+export function NewDoctorForm({ onCancel, onSuccess, doctor }: NewDoctorFormProps) {
   const [firstName, setFirstName] = useState("")
   const [lastName, setLastName] = useState("")
   const [middleInitial, setMiddleInitial] = useState("")
   const [email, setEmail] = useState("")
-  // phone stores raw digits; displayed formatted
   const [phone, setPhone] = useState("")
-  // gender stored as string "1"|"2"|"3"
   const [gender, setGender] = useState("")
-  // licenseNumber stores only digits (up to 5). display uses formatLicenseNumber(licenseNumber)
   const [licenseNumber, setLicenseNumber] = useState("")
   const [ssn, setSsn] = useState("")
   const [password, setPassword] = useState("")
@@ -33,6 +42,24 @@ export function NewDoctorForm({ onCancel, onSuccess, doctorId }: NewDoctorFormPr
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Populate form when doctor prop changes
+  useEffect(() => {
+    if (doctor) {
+      setFirstName(doctor.doc_fname || "")
+      setLastName(doctor.doc_lname || "")
+      setMiddleInitial(doctor.doc_minit || "")
+      setEmail(doctor.email || "")
+      setPhone(doctor.phone || "")
+      const genderValue = doctor.gender != null ? String(doctor.gender) : ""
+      setGender(genderValue)
+      const licMatch = doctor.license_no?.match(/\d+/)
+      setLicenseNumber(licMatch ? licMatch[0] : "")
+      setSsn(doctor.ssn || "")
+    } else {
+      resetForm()
+    }
+  }, [doctor])
 
   const resetForm = () => {
     setFirstName("")
@@ -47,15 +74,28 @@ export function NewDoctorForm({ onCancel, onSuccess, doctorId }: NewDoctorFormPr
     setConfirmPassword("")
   }
 
+  const capitalizeFirst = (str: string) => {
+    if (!str) return ""
+    return str.charAt(0).toUpperCase() + str.slice(1)
+  }
+
+  const validatePassword = (pass: string) => {
+    if (!pass) return true // Allow empty if not required
+    const hasUpperCase = /[A-Z]/.test(pass)
+    const hasLowerCase = /[a-z]/.test(pass)
+    const hasSpecialChar = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(pass)
+    return hasUpperCase && hasLowerCase && hasSpecialChar
+  }
+
   const handleDelete = async () => {
-    if (!doctorId) return
+    if (!doctor) return
 
     setIsDeleting(true)
     setError(null)
     try {
       const token = typeof window !== "undefined" ? window.localStorage.getItem("authToken") : null
 
-      const res = await fetch(apiPath(`/doctors/${doctorId}`), {
+      const res = await fetch(apiPath(`/doctors/${doctor.doctor_id}`), {
         method: "DELETE",
         headers: {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -86,7 +126,6 @@ export function NewDoctorForm({ onCancel, onSuccess, doctorId }: NewDoctorFormPr
       return
     }
 
-    // licenseNumber must be exactly 5 digits
     if (licenseNumber.length !== 5) {
       setError("License number must contain exactly 5 digits (format LIC-12345)")
       return
@@ -102,35 +141,43 @@ export function NewDoctorForm({ onCancel, onSuccess, doctorId }: NewDoctorFormPr
       return
     }
 
-    if (!password) {
+    if (!doctor && !password) {
       setError("Password is required")
       return
     }
-    if (password !== confirmPassword) {
+
+    if (password && !validatePassword(password)) {
+      setError("Password must contain at least one uppercase letter, one lowercase letter, and one special character")
+      return
+    }
+
+    if (password && password !== confirmPassword) {
       setError("Passwords do not match")
       return
     }
 
     setIsSubmitting(true)
     try {
-      const payload = {
-        doc_fname: firstName,
-        doc_lname: lastName,
+      const payload: any = {
+        doc_fname: capitalizeFirst(firstName.trim()),
+        doc_lname: capitalizeFirst(lastName.trim()),
         doc_minit: middleInitial || null,
         email,
         phone: phone || null,
         gender: gender ? Number(gender) : null,
-        // server expects LIC-12345 string
         license_no: licenseNumber ? `LIC-${licenseNumber}` : null,
         ssn,
-        availability: 1,
-        password,
+        ...(doctor ? {} : { availability: 1 }),
+      }
+
+      if (password) {
+        payload.password = password
       }
 
       const token = typeof window !== "undefined" ? window.localStorage.getItem("authToken") : null
 
-      const res = await fetch(apiPath("/doctors"), {
-        method: "POST",
+      const res = await fetch(apiPath(doctor ? `/doctors/${doctor.doctor_id}` : "/doctors"), {
+        method: doctor ? "PUT" : "POST",
         headers: {
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -141,14 +188,16 @@ export function NewDoctorForm({ onCancel, onSuccess, doctorId }: NewDoctorFormPr
 
       const body = await res.json().catch(() => ({}))
       if (!res.ok) {
-        throw new Error(body?.error || "Failed to create doctor")
+        throw new Error(body?.error || `Failed to ${doctor ? "update" : "create"} doctor`)
       }
 
-      resetForm()
+      if (!doctor) {
+        resetForm()
+      }
       onSuccess?.()
     } catch (err) {
       console.error(err)
-      setError((err as Error).message || "Failed to create doctor")
+      setError((err as Error).message || `Failed to ${doctor ? "update" : "create"} doctor`)
     } finally {
       setIsSubmitting(false)
     }
@@ -157,8 +206,10 @@ export function NewDoctorForm({ onCancel, onSuccess, doctorId }: NewDoctorFormPr
   return (
     <div className="space-y-6">
       <div className="border-b pb-4">
-        <h2 className="text-2xl font-semibold">Add New Doctor</h2>
-        <p className="text-sm text-muted-foreground">Provide the provider&apos;s details to onboard them.</p>
+        <h2 className="text-2xl font-semibold">{doctor ? "Edit Doctor" : "Add New Doctor"}</h2>
+        <p className="text-sm text-muted-foreground">
+          {doctor ? "Update the provider's details." : "Provide the provider's details to onboard them."}
+        </p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -168,7 +219,14 @@ export function NewDoctorForm({ onCancel, onSuccess, doctorId }: NewDoctorFormPr
             <Input
               id="firstName"
               value={firstName}
-              onChange={(e) => setFirstName(e.target.value.replace(/[^a-zA-Z]/g, "").charAt(0).toUpperCase() + e.target.value.replace(/[^a-zA-Z]/g, "").slice(1).toLowerCase())}
+              onChange={(e) => {
+                const value = e.target.value
+                if (value.length > 0) {
+                  setFirstName(value.charAt(0).toUpperCase() + value.slice(1))
+                } else {
+                  setFirstName(value)
+                }
+              }}
               placeholder="Jane"
               required
             />
@@ -178,7 +236,14 @@ export function NewDoctorForm({ onCancel, onSuccess, doctorId }: NewDoctorFormPr
             <Input
               id="lastName"
               value={lastName}
-              onChange={(e) => setLastName(e.target.value.replace(/[^a-zA-Z]/g, "").charAt(0).toUpperCase() + e.target.value.replace(/[^a-zA-Z]/g, "").slice(1).toLowerCase())}
+              onChange={(e) => {
+                const value = e.target.value
+                if (value.length > 0) {
+                  setLastName(value.charAt(0).toUpperCase() + value.slice(1))
+                } else {
+                  setLastName(value)
+                }
+              }}
               placeholder="Doe"
               required
             />
@@ -188,14 +253,18 @@ export function NewDoctorForm({ onCancel, onSuccess, doctorId }: NewDoctorFormPr
             <Input
               id="middleInitial"
               value={middleInitial}
-              onChange={(e) => setMiddleInitial(e.target.value)}
+              onChange={(e) => setMiddleInitial(e.target.value.replace(/[^a-zA-Z]/g, "").toUpperCase().slice(0, 1))}
               placeholder="A"
               maxLength={1}
             />
           </div>
           <div className="space-y-2">
             <Label htmlFor="gender">Gender</Label>
-            <Select value={gender} onValueChange={setGender}>
+            <Select 
+              key={`gender-${doctor?.doctor_id || 'new'}-${gender}`} 
+              value={gender} 
+              onValueChange={setGender}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Select gender" />
               </SelectTrigger>
@@ -227,7 +296,7 @@ export function NewDoctorForm({ onCancel, onSuccess, doctorId }: NewDoctorFormPr
               value={formatPhoneNumber(phone)}
               onChange={(e) => {
                 const rawDigits = e.target.value.replace(/\D/g, "")
-                setPhone(rawDigits.slice(0, 10))
+                setPhone(rawDigits)
               }}
               placeholder="(555) 123-4567"
             />
@@ -253,8 +322,10 @@ export function NewDoctorForm({ onCancel, onSuccess, doctorId }: NewDoctorFormPr
             <Label htmlFor="ssn">SSN</Label>
             <Input
               id="ssn"
+              inputMode="numeric"
+              pattern="\d*"
               value={ssn}
-              onChange={(e) => setSsn(e.target.value.slice(0, 10))}
+              onChange={(e) => setSsn(e.target.value.replace(/\D/g, "").slice(0, 10))}
               placeholder="1234567890"
               maxLength={10}
               required
@@ -264,23 +335,28 @@ export function NewDoctorForm({ onCancel, onSuccess, doctorId }: NewDoctorFormPr
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
+            <Label htmlFor="password">
+              Password {doctor && <span className="text-xs text-muted-foreground">(leave blank to keep current)</span>}
+            </Label>
             <Input
               id="password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              required
+              required={!doctor}
             />
+            <p className="text-xs text-muted-foreground">Must contain uppercase, lowercase, and special character</p>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="confirmPassword">Confirm Password</Label>
+            <Label htmlFor="confirmPassword">
+              Confirm Password {doctor && <span className="text-xs text-muted-foreground">(leave blank to keep current)</span>}
+            </Label>
             <Input
               id="confirmPassword"
               type="password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              required
+              required={!doctor}
             />
           </div>
         </div>
@@ -289,12 +365,12 @@ export function NewDoctorForm({ onCancel, onSuccess, doctorId }: NewDoctorFormPr
 
         <div className="flex items-center gap-2 pt-2">
           <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? "Creating…" : "Create Doctor"}
+            {isSubmitting ? (doctor ? "Updating…" : "Creating…") : doctor ? "Update Doctor" : "Create Doctor"}
           </Button>
           <Button type="button" variant="outline" onClick={onCancel}>
             Cancel
           </Button>
-          {doctorId && (
+          {doctor && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button type="button" variant="ghost" size="sm" className="ml-auto text-destructive hover:text-destructive">

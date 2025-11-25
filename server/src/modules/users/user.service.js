@@ -581,6 +581,62 @@ export async function deletePatientById(id) {
     connection.release();
   }
 }
+
+export async function updateDoctor(doctorId, updates) {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    // Separate password from other updates
+    const { password, ...doctorUpdates } = updates;
+
+    // Update doctor table if there are non-password fields
+    const fields = [];
+    const values = [];
+
+    for (const [key, val] of Object.entries(doctorUpdates)) {
+      if (val !== undefined) {
+        fields.push(`${key} = ?`);
+        values.push(val);
+      }
+    }
+
+    if (fields.length > 0) {
+      const sql = `UPDATE doctor SET ${fields.join(", ")} WHERE doctor_id = ?`;
+      values.push(doctorId);
+      await connection.query(sql, values);
+    }
+
+    // Update password in login table if provided
+    if (password) {
+      const [doctor] = await connection.query(
+        "SELECT email FROM doctor WHERE doctor_id = ?",
+        [doctorId]
+      );
+
+      if (doctor.length === 0) {
+        throw Object.assign(new Error("Doctor not found"), { statusCode: 404 });
+      }
+
+      const hash = await argon2.hash(password);
+      await connection.query(
+        "UPDATE login SET password = ?, updated_at = NOW() WHERE email = ?",
+        [hash, doctor[0].email]
+      );
+    }
+
+    await connection.commit();
+    const updatedDoctor = await findDoctorById(doctorId);
+    return { success: true, doctor: updatedDoctor };
+  } catch (err) {
+    await connection.rollback();
+    console.error("updateDoctor transaction failed:", err);
+    throw err;
+  } finally {
+    connection.release();
+  }
+}
+
 export async function deleteDoctor(doctorId) {
   const connection = await pool.getConnection();
   try {

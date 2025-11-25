@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import {DropdownMenu,DropdownMenuContent,DropdownMenuItem,DropdownMenuLabel,DropdownMenuSeparator,DropdownMenuTrigger,} from "@/components/ui/dropdown-menu"
 import { Plus, User, Menu, X } from "lucide-react"
@@ -37,13 +37,15 @@ const roleConfig = {
       { label: "Agenda", href: "/staff/appointments" },
       { label: "Patients", href: "/staff/patients" },
       { label: "Doctors", href: "/staff/doctors" },
-      { label: "Report", href: "/admin/reports/appointments" },
+      // `reports` will be rendered as a dropdown in the nav
+      { label: "Reports", isReport: true },
     ],
   },
 }
 
 export function TopBar({ role, userName, onNewAppointment, onLogout }: TopBarProps) {
   const pathname = usePathname()
+  const router = useRouter()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const config = roleConfig[role]
@@ -67,13 +69,31 @@ export function TopBar({ role, userName, onNewAppointment, onLogout }: TopBarPro
 
         {/* Desktop Navigation */}
         <nav className="hidden md:flex items-center gap-1 flex-1">
-          {config.tabs.map((tab) => (
-            <Link key={tab.href} href={tab.href}>
-              <Button variant="ghost" size="sm" className={cn("rounded-full", pathname === tab.href && "bg-muted")}>
-                {tab.label}
-              </Button>
-            </Link>
-          ))}
+          {config.tabs.map((tab) => {
+            if ((tab as any).isReport) {
+              return (
+                <DropdownMenu key="reports">
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm" className={cn("rounded-full")}>{tab.label}</Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    <DropdownMenuLabel>Reports</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onSelect={() => router.push('/admin/reports/appointments')}>Appointment</DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => router.push('/admin/reports/revenue')}>Revenue</DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )
+            }
+
+            return (
+              <Link key={(tab as any).href} href={(tab as any).href}>
+                <Button variant="ghost" size="sm" className={cn("rounded-full", pathname === (tab as any).href && "bg-muted")}>
+                  {tab.label}
+                </Button>
+              </Link>
+            )
+          })}
         </nav>
 
 
@@ -109,17 +129,32 @@ export function TopBar({ role, userName, onNewAppointment, onLogout }: TopBarPro
       {mobileMenuOpen && (
         <div className="md:hidden border-t bg-card p-4">
           <nav className="flex flex-col gap-2">
-            {config.tabs.map((tab) => (
-              <Link key={tab.href} href={tab.href} onClick={() => setMobileMenuOpen(false)}>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className={cn("w-full justify-start", pathname === tab.href && "bg-muted")}
-                >
-                  {tab.label}
-                </Button>
-              </Link>
-            ))}
+            {config.tabs.map((tab) => {
+              if ((tab as any).isReport) {
+                return (
+                  <div key="reports" className="flex flex-col gap-2">
+                    <Link href="/admin/reports/appointments" onClick={() => setMobileMenuOpen(false)}>
+                      <Button variant="ghost" size="sm" className={cn("w-full justify-start")}>Appointment Report</Button>
+                    </Link>
+                    <Link href="/admin/reports/revenue" onClick={() => setMobileMenuOpen(false)}>
+                      <Button variant="ghost" size="sm" className={cn("w-full justify-start")}>Revenue Report</Button>
+                    </Link>
+                  </div>
+                )
+              }
+
+              return (
+                <Link key={(tab as any).href} href={(tab as any).href} onClick={() => setMobileMenuOpen(false)}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className={cn("w-full justify-start", pathname === (tab as any).href && "bg-muted")}
+                  >
+                    {tab.label}
+                  </Button>
+                </Link>
+              )
+            })}
           </nav>
         </div>
       )}

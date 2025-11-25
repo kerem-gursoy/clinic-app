@@ -24,6 +24,8 @@ interface DoctorAppointmentResponse {
   time: string | null
   duration: number | null
   notes?: string | null
+  procedure_code?: string | null
+  amount?: number | null
 }
 
 interface CalendarAppointment {
@@ -37,6 +39,8 @@ interface CalendarAppointment {
   time: string
   duration: number
   notes?: string | null
+  procedure_code?: string | null
+  amount?: number | null
 }
 
 type ViewMode = "week" | "agenda"
@@ -320,7 +324,13 @@ function WeekView({ appointments, currentDate }: { appointments: CalendarAppoint
                     >
                       <div className="text-xs font-medium mb-1">{apt.time}</div>
                       <div className="text-sm font-semibold mb-1">{apt.patientName}</div>
-                      <div className="text-xs text-muted-foreground">{apt.reason}</div>
+                      <div className="text-xs text-muted-foreground">
+                        <div>{apt.reason}</div>
+                        <div className="text-[11px] mt-1">
+                          <span className="mr-2">{apt.procedure_code ?? ''}</span>
+                          <span>{apt.amount != null ? `$${Number(apt.amount).toFixed(2)}` : ''}</span>
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -413,7 +423,13 @@ function AgendaListItem({ appointment }: { appointment: CalendarAppointment }) {
             </div>
             <div className="flex items-center gap-1.5">
               <User className="h-4 w-4" />
-              <span>{appointment.reason}</span>
+              <div>
+                
+                <div className="text-[12px] text-muted-foreground">
+                  <span className="mr-2">{appointment.procedure_code ?? ''}</span>
+                  <span>{appointment.amount != null ? `$${Number(appointment.amount).toFixed(2)}` : ''}</span>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -437,6 +453,7 @@ function AgendaListItem({ appointment }: { appointment: CalendarAppointment }) {
               <DetailRow label="Status" value={<StatusChip status={appointment.status} />} />
               <DetailRow label="Date" value={formattedDate} />
               <DetailRow label="Time" value={`${formattedTime} (${appointment.duration} min)`} />
+              <DetailRow label="Type" value={appointment.procedure_code} />
               <DetailRow label="Reason" value={appointment.reason} />
               {appointment.notes && <DetailRow label="Notes" value={appointment.notes} />}
             </div>
@@ -478,6 +495,8 @@ function mapAppointment(appt: DoctorAppointmentResponse): CalendarAppointment {
     time,
     duration: appt.duration ?? 0,
     notes: appt.notes ?? null,
+    procedure_code: appt.procedure_code ?? null,
+    amount: appt.amount ?? null,
   }
 }
 
