@@ -3,341 +3,233 @@
 import React, { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { apiPath } from "@/app/lib/api"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Separator } from "@/components/ui/separator"
+import { ArrowLeft, User, Mail, Phone, Calendar, MapPin } from "lucide-react"
 
-interface PatientResponse {
-  patient_id: number
+interface RawProfile {
+  patient_id?: number
   patient_fname?: string | null
   patient_minit?: string | null
   patient_lname?: string | null
+  name?: string | null
   patient_email?: string | null
+  email?: string | null
   phone?: string | null
   dob?: string | null
-}
-
-interface PatientForm {
-  patientId: number
-  firstName: string
-  middleInitial: string
-  lastName: string
-  email: string
-  phone: string
-  dob: string | null
-}
-
-interface AddressResponse {
-  address_id?: number
-  patient_id?: number
-  street?: string | null
-  line2?: string | null
+  date_of_birth?: string | null
+  gender?: string | null
+  gender_label?: string | null
+  address?: string | null
+  address_line1?: string | null
+  address_line2?: string | null
   city?: string | null
   state?: string | null
-  zip?: string | null
+  zip_code?: string | null
+  emergency_contact?: string | null
+  created_at?: string | null
+  balance?: number | string | null
 }
 
-function toDateInputValue(value?: string | null): string | null {
-  if (!value) return null
-  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value
+function formatDate(value?: string | null) {
+  if (!value) return "N/A"
   const d = new Date(value)
-  if (isNaN(d.getTime())) return null
-  const yyyy = d.getFullYear()
-  const mm = String(d.getMonth() + 1).padStart(2, "0")
-  const dd = String(d.getDate()).padStart(2, "0")
-  return `${yyyy}-${mm}-${dd}`
+  if (Number.isNaN(d.getTime())) return value
+  return d.toLocaleDateString()
 }
 
-function mapPatient(p: PatientResponse): PatientForm {
-  return {
-    patientId: p.patient_id,
-    firstName: p.patient_fname ?? "",
-    middleInitial: p.patient_minit ?? "",
-    lastName: p.patient_lname ?? "",
-    email: p.patient_email ?? "",
-    phone: p.phone ?? "",
-    dob: toDateInputValue(p.dob) ?? null,
-  }
+function buildDisplayName(p: RawProfile) {
+  if (p.name) return p.name
+  const parts = [p.patient_fname, p.patient_minit ? `${p.patient_minit}.` : "", p.patient_lname].filter(Boolean)
+  return parts.join(" ") || "Patient"
 }
 
-/* Helpers: token lookup. Use shared apiPath(...) for endpoint URLs so client matches other pages */
+function buildAddress(p: RawProfile) {
+  if (p.address) return p.address
+  const parts = [p.address_line1, p.address_line2, p.city, p.state, p.zip_code].filter(Boolean)
+  return parts.length ? parts.join(", ") : null
+}
+
+const getGenderDisplay = (gender: string | null) => {
+    if (!gender) return "N/A"
+    switch (gender.toString()) {
+        case "1":
+            return "Male"
+        case "2":
+            return "Female"
+        case "3":
+            return "Other"
+        default:
+            return gender
+    }
+}
+
+const formatCurrency = (value?: number | string | null) => {
+  if (value === null || value === undefined || value === "") return null
+  const num = typeof value === "string" ? Number(value) : value
+  if (Number.isNaN(num)) return null
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(num)
+}
+
 const getToken = () =>
   typeof window !== "undefined"
     ? (localStorage.getItem("authtoken") ?? localStorage.getItem("authToken") ?? localStorage.getItem("AuthToken"))
     : null
 
-export default function EditProfilePage() {
-  const router = useRouter()
-  const [form, setForm] = useState<PatientForm | null>(null)
-  const [address, setAddress] = useState<AddressResponse | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [isSaving, setIsSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [isAddressExpanded, setIsAddressExpanded] = useState(false)
 
-  // Load patient + address
+export default function PatientProfilePage() {
+  const router = useRouter()
+  const [profile, setProfile] = useState<RawProfile | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
   useEffect(() => {
     let mounted = true
-
-    const loadProfile = async () => {
+    const load = async () => {
       setIsLoading(true)
       setError(null)
       try {
-  const token = getToken()
-
-  // Fetch current user/profile (use shared apiPath helper)
-  const meUrl = apiPath("/me")
-        console.debug("[profile] GET", meUrl, { tokenPresent: !!token })
-        const res = await fetch(meUrl, {
+        const token = getToken()
+        const res = await fetch(apiPath("/me"), {
           headers: token ? { Authorization: `Bearer ${token}` } : undefined,
           credentials: "include",
         })
-        let data: any = null
-        try { data = await res.json() } catch {}
-        if (!res.ok) throw new Error(data?.error ?? `Failed to load profile (${res.status})`)
-        const profile = data.profile ?? data.user ?? data
-        if (!profile) throw new Error("No profile returned")
-        if (!mounted) return
-        const patient = mapPatient(profile as PatientResponse)
-        setForm(patient)
-
-        // Fetch address by patientId (use mapped patientId, not profile.patient_id which can vary)
-        try {
-          const addrUrl = apiPath(`/addresses?patient_id=${encodeURIComponent(String(patient.patientId))}`)
-          console.debug("[profile] GET", addrUrl)
-          const addrRes = await fetch(addrUrl, { headers: token ? { Authorization: `Bearer ${token}` } : undefined })
-          if (addrRes.ok) {
-            let addrBody: any = null
-            try { addrBody = await addrRes.json() } catch {}
-            const addr = addrBody.address ?? (Array.isArray(addrBody) ? addrBody[0] : addrBody)
-            if (addr) setAddress(addr as AddressResponse)
-          } else {
-            console.warn("[profile] address fetch returned", addrRes.status)
-          }
-        } catch (addrErr) {
-          console.warn("Address fetch failed:", addrErr)
+        const body = await res.json().catch(() => ({}))
+        if (!res.ok) {
+          throw new Error(body?.error ?? `Failed to load profile (${res.status})`)
         }
+        const p: RawProfile = body.profile ?? body.user ?? body
+        if (mounted) setProfile(p)
       } catch (err: any) {
-        if (mounted) setError(err.message ?? String(err))
+        if (mounted) setError(err?.message ?? String(err))
       } finally {
         if (mounted) setIsLoading(false)
       }
     }
-
-    loadProfile()
-    return () => { mounted = false }
+    load()
+    return () => {
+      mounted = false
+    }
   }, [])
 
-  const updateField = (k: keyof PatientForm, v: string) => {
-    setForm((s) => (s ? { ...s, [k]: v } : s))
+  if (isLoading) {
+    return (
+      <div className="container max-w-2xl mx-auto py-8 px-4">
+        <div className="bg-card rounded-xl border p-8 text-center text-muted-foreground">Loading profile…</div>
+      </div>
+    )
   }
 
-  const updateAddressField = (k: keyof AddressResponse, v: string) => {
-    setAddress((a) => ({ ...(a ?? {}), [k]: v }))
+  if (error || !profile) {
+    return (
+      <div className="container max-w-2xl mx-auto py-8 px-4">
+        <div className="bg-card rounded-xl border p-8 text-center">
+          <p className="text-destructive mb-4">{error || "Profile not found"}</p>
+          <Button onClick={() => router.back()} variant="outline">
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Go Back
+          </Button>
+        </div>
+      </div>
+    )
   }
 
-  const saveAddress = async (patientId: number, token: string | null) => {
-  if (!address) return
-    const payload = {
-      patient_id: patientId,
-      street: address.street ?? null,
-      line2: address.line2 ?? null,
-      city: address.city ?? null,
-      state: address.state ?? null,
-      zip: address.zip ?? null,
-    }
-
-  const url = address.address_id ? apiPath(`/addresses/${address.address_id}`) : apiPath(`/addresses`)
-    const method = address.address_id ? "PUT" : "POST"
-    console.debug("[profile] address request", { method, url, payload, tokenPresent: !!token })
-
-    const res = await fetch(url, {
-      method,
-      headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-      body: JSON.stringify(payload),
-    })
-    let data: any = null
-    try { data = await res.json() } catch {}
-    if (!res.ok) throw new Error(data?.error ?? `Address ${method} failed (${res.status})`)
-  }
-
-  
-  const handleSave = async (e?: React.FormEvent) => {
-    e?.preventDefault()
-    if (!form) return
-    setIsSaving(true)
-    setError(null)
-    const token = getToken()
-  // use apiPath(...) when building endpoint URLs
-    const payload = {
-      patient_fname: form.firstName,
-      patient_lname: form.lastName,
-      patient_minit: form.middleInitial,
-      patient_email: form.email,
-      phone: form.phone,
-      dob: form.dob,
-    }
-
-    // helper that performs a PUT and returns { ok, status, body }
-    const tryPut = async (url: string) => {
-      console.debug('[profile] PUT ->', url, payload)
-      const res = await fetch(url, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify(payload),
-        credentials: 'include',
-      })
-      const text = await res.text().catch(() => '')
-      let body: any = text
-      try { body = text ? JSON.parse(text) : text } catch {}
-      return { ok: res.ok, status: res.status, body, url }
-    }
-
-    try {
-      // try primary path
-  const primary = apiPath(`/patients/${encodeURIComponent(String(form.patientId))}`)
-      let result = await tryPut(primary)
-
-      // fallback to staff/patients if 404 or not found
-      if (!result.ok && result.status === 404) {
-  const fallback = apiPath(`/staff/patients/${encodeURIComponent(String(form.patientId))}`)
-  result = await tryPut(fallback)
-      }
-
-      if (!result.ok) {
-        console.error('[profile] patient update failed', result)
-        throw new Error(result.body?.error ?? result.body?.message ?? `Update failed (${result.status})`)
-      }
-
-      // try saving address (best-effort)
-      try {
-        await saveAddress(form.patientId, token)
-      } catch (addrErr: any) {
-        console.warn('Address save failed', addrErr)
-        setError(prev => prev ? prev + '; address: ' + String(addrErr.message || addrErr) : String(addrErr.message || addrErr))
-      }
-
-      router.push('/patient/appointments')
-    } catch (err: any) {
-      setError(err?.message ?? String(err))
-    } finally {
-      setIsSaving(false)
-    }
-  }
-
-
-  if (isLoading) return <div className="p-6">Loading…</div>
-  if (error && !form) return <div className="p-6 text-red-600">Error: {error}</div>
-  if (!form) return <div className="p-6">No profile data</div>
+  const displayName = buildDisplayName(profile)
+  const email = profile.patient_email ?? profile.email ?? "N/A"
+  const phone = profile.phone ?? "N/A"
+  const dob = profile.dob ?? profile.date_of_birth ?? null
+  const address = buildAddress(profile)
+  const gender = getGenderDisplay(profile.gender_label ?? profile.gender)
+  const emergency_contact = profile.emergency_contact ?? null
+  const balanceFormatted = formatCurrency(profile.balance)
 
   return (
-    <main className="max-w-2xl mx-auto p-6">
-      <h1 className="text-2xl font-semibold mb-6">Edit Profile</h1>
-
-      <form onSubmit={handleSave} className="space-y-6">
-        {/* Name */}
-        <div className="grid grid-cols-3 gap-4 items-end">
-          <div>
-            <label className="block text-sm font-medium mb-1">First Name</label>
-            <input
-              className="w-full border-2 border-gray-400 rounded px-3 py-2"
-              value={form.firstName}
-              onChange={(e) => updateField("firstName", e.target.value)}
-            />
-          </div>
-          <div className="flex flex-col items-center">
-            <label className="block text-sm font-medium mb-1">Middle Initial</label>
-            <input
-              className="w-12 border-2 border-gray-400 rounded px-2 py-1 text-center"
-              maxLength={1}
-              value={form.middleInitial}
-              onChange={(e) => updateField("middleInitial", e.target.value)}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Last Name</label>
-            <input
-              className="w-full border-2 border-gray-400 rounded px-3 py-2"
-              value={form.lastName}
-              onChange={(e) => updateField("lastName", e.target.value)}
-            />
-          </div>
-        </div>
-
-        {/* Email / Phone */}
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">Email</label>
-            <input
-              type="email"
-              className="w-full border-2 border-gray-400 rounded px-3 py-2"
-              value={form.email}
-              onChange={(e) => updateField("email", e.target.value)}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Phone</label>
-            <input
-              className="w-full border-2 border-gray-400 rounded px-3 py-2"
-              value={form.phone}
-              onChange={(e) => updateField("phone", e.target.value)}
-            />
-          </div>
-        </div>
-
-        {/* DOB */}
+    <div className="container max-w-2xl mx-auto py-8 px-4">
+      <div className="mb-6 flex items-start justify-between gap-4">
         <div>
-          <label className="block text-sm font-medium mb-1">Date of Birth</label>
-          <input
-            type="date"
-            className="w-full border-2 border-gray-400 rounded px-3 py-2"
-            value={form.dob ?? ""}
-            onChange={(e) => updateField("dob", e.target.value)}
-          />
+          <Button onClick={() => router.back()} variant="ghost" className="mb-4 -ml-4">
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back
+          </Button>
+          <h1 className="text-3xl font-bold mb-1">{displayName}</h1>
         </div>
 
-        {/* Address */}
-        <fieldset className="border-2 border-gray-400 rounded px-4 py-3">
-          <legend className="text-sm font-medium cursor-pointer" onClick={() => setIsAddressExpanded((v) => !v)}>
-            Address {isAddressExpanded ? "▲" : "▼"}
-          </legend>
+        <div className="flex items-center gap-2">
+          <Button onClick={() => router.push("/patient/profile/edit")}>Edit</Button>
+        </div>
+      </div>
 
-          {isAddressExpanded && (
-            <div className="mt-2 space-y-3">
-              <div>
-                <label className="block text-sm font-medium mb-1">Street</label>
-                <input className="w-full border-2 border-gray-400 rounded px-3 py-2" value={address?.street ?? ""} onChange={(e) => updateAddressField("street", e.target.value)} />
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <User className="h-5 w-5" />
+            Patient Information
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-sm">
+                <Mail className="h-4 w-4 text-muted-foreground" />
+                <span className="font-medium">Email:</span>
+                <span>{email}</span>
               </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Line 2</label>
-                <input className="w-full border-2 border-gray-400 rounded px-3 py-2" value={address?.line2 ?? ""} onChange={(e) => updateAddressField("line2", e.target.value)} />
+              <div className="flex items-center gap-2 text-sm">
+                <Phone className="h-4 w-4 text-muted-foreground" />
+                <span className="font-medium">Phone:</span>
+                <span>{phone}</span>
               </div>
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-sm font-medium mb-1">City</label>
-                  <input className="w-full border-2 border-gray-400 rounded px-3 py-2" value={address?.city ?? ""} onChange={(e) => updateAddressField("city", e.target.value)} />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">State</label>
-                  <input className="w-full border-2 border-gray-400 rounded px-3 py-2" value={address?.state ?? ""} onChange={(e) => updateAddressField("state", e.target.value)} />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">ZIP</label>
-                  <input className="w-full border-2 border-gray-400 rounded px-3 py-2" value={address?.zip ?? ""} onChange={(e) => updateAddressField("zip", e.target.value)} />
-                </div>
+              <div className="flex items-center gap-2 text-sm">
+                <Calendar className="h-4 w-4 text-muted-foreground" />
+                <span className="font-medium">Date of Birth:</span>
+                <span>{formatDate(dob)}</span>
               </div>
             </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-sm">
+                <User className="h-4 w-4 text-muted-foreground" />
+                <span className="font-medium">Gender:</span>
+                <span>{gender}</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <Calendar className="h-4 w-4 text-muted-foreground" />
+                <span className="font-medium">Patient Since:</span>
+                <span>{formatDate(profile.created_at ?? null)}</span>
+              </div>
+
+              {address && (
+                <div className="flex items-center gap-2 text-sm">
+                  <MapPin className="h-4 w-4 text-muted-foreground" />
+                  <span className="font-medium">Address:</span>
+                  <span>{address}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {emergency_contact && (
+            <>
+              <Separator />
+              <div className="flex items-center gap-2 text-sm">
+                <Phone className="h-4 w-4 text-muted-foreground" />
+                <span className="font-medium">Emergency Contact:</span>
+                <span>{emergency_contact}</span>
+              </div>
+            </>
           )}
-        </fieldset>
-
-        {error && <div className="text-red-600">{error}</div>}
-
-        <div className="flex gap-3 mt-4">
-          <button type="submit" disabled={isSaving} className="px-4 py-2 bg-blue-600 text-white rounded">
-            {isSaving ? "Saving…" : "Save"}
-          </button>
-          <button type="button" onClick={() => router.back()} className="px-4 py-2 border rounded">
-            Cancel
-          </button>
-        </div>
-      </form>
-    </main>
+          {balanceFormatted && (
+            <>
+              <Separator />
+              <div className="flex items-center gap-2 text-sm">
+                 <span className="font-medium">Balance:</span>
+                 <span className="font-semibold text-red-600">{balanceFormatted}</span>
+               </div>
+            </>
+           )}
+        </CardContent>
+      </Card>
+    </div>
   )
 }

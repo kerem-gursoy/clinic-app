@@ -22,6 +22,7 @@ const roleConfig = {
     tabs: [
       { label: "Appointments", href: "/patient/appointments" },
       { label: "Files", href: "/patient/files" },
+      { label: "Profile", href: "/patient/profile" },
     ],
   },
   doctor: {
@@ -38,6 +39,7 @@ const roleConfig = {
       { label: "Patients", href: "/staff/patients" },
       { label: "Doctors", href: "/staff/doctors" },
       { label: "Report", href: "/admin/reports/appointments" },
+      { label: "Notifications", href: "/staff/notifications" }
     ],
   },
 }

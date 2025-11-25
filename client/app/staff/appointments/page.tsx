@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils"
 import { apiPath } from "@/app/lib/api"
 import { NewAppointmentForm } from "@/components/appointments/new-appointment-form"
 import { CancelAppointmentForm } from "@/components/appointments/cancel-appointment-form"
+import { updateAppointmentStatus } from "@/components/appointments/updateAppointment"
 
 type ViewMode = "week" | "agenda"
 
@@ -333,7 +334,16 @@ export default function StaffAppointmentsPage() {
             description="Try selecting a different doctor or adjust your filters."
           />
         ) : viewMode === "agenda" ? (
-          <AgendaView appointments={doctorFilteredAppointments} statusFilter={statusFilter} />
+          <AgendaView
+            appointments={doctorFilteredAppointments}
+            statusFilter={statusFilter}
+            onRefresh={() => {
+              setIsLoading(true)
+              fetchAppointments()
+              setFlash({ type: "success", text: "Appointment updated" })
+              window.setTimeout(() => setFlash(null), 4000)
+            }}
+          />
         ) : (
           <WeekView appointments={doctorFilteredAppointments} currentDate={currentDate} />
         )}
@@ -438,9 +448,11 @@ function WeekView({ appointments, currentDate }: { appointments: StaffAppointmen
 function AgendaView({
   appointments,
   statusFilter,
+  onRefresh,
 }: {
   appointments: StaffAppointmentItem[]
   statusFilter: AppointmentStatus | "all"
+  onRefresh?: () => void
 }) {
   const now = Date.now()
 
@@ -474,13 +486,13 @@ function AgendaView({
   return (
     <div className="bg-card rounded-xl border divide-y">
       {sortedAppointments.map((appointment) => (
-        <AgendaListItem key={appointment.id} appointment={appointment} />
+        <AgendaListItem key={appointment.id} appointment={appointment} onRefresh={onRefresh} />
       ))}
     </div>
   )
 }
 
-function AgendaListItem({ appointment }: { appointment: StaffAppointmentItem }) {
+function AgendaListItem({ appointment, onRefresh }: { appointment: StaffAppointmentItem; onRefresh?: () => void }) {
   const [isOpen, setIsOpen] = useState(false)
   const appointmentDate = new Date(`${appointment.date}T00:00:00`)
   const formattedDate = appointmentDate.toLocaleDateString("en-US", {
@@ -495,6 +507,49 @@ function AgendaListItem({ appointment }: { appointment: StaffAppointmentItem }) 
     minute: "2-digit",
   })
   const [showCancelForm, setShowCancelForm] = useState(false)
+  const [isCompleting, setIsCompleting] = useState(false)
+  const [isCheckingIn, setIsCheckingIn] = useState(false)
+
+  async function handleMarkCompleted() {
+    if (!confirm("Mark this appointment as completed?")) return
+    setIsCompleting(true)
+    try {
+      await updateAppointmentStatus(appointment.appointmentId, "completed")
+      try {
+        localStorage.setItem("appointments_refresh", String(Date.now()))
+      } catch {
+        // ignore storage errors
+      }
+      // refresh parent list if callback provided
+      if (onRefresh) onRefresh()
+      setIsOpen(false)
+    } catch (err) {
+      console.error(err)
+      alert((err as any)?.message ?? "Failed to update appointment")
+    } finally {
+      setIsCompleting(false)
+    }
+  }
+
+  async function handleCheckIn() {
+    if (!confirm("Mark this appointment as checked in?")) return
+    setIsCheckingIn(true)
+    try {
+      await updateAppointmentStatus(appointment.appointmentId, "checked_in")
+      try {
+        localStorage.setItem("appointments_refresh", String(Date.now()))
+      } catch {
+        // ignore storage errors
+      }
+      if (onRefresh) onRefresh()
+      setIsOpen(false)
+    } catch (err) {
+      console.error(err)
+      alert((err as any)?.message ?? "Failed to update appointment")
+    } finally {
+      setIsCheckingIn(false)
+    }
+  }
 
   return (
     <div className="p-4 hover:bg-muted/50 transition-colors">
@@ -548,7 +603,10 @@ function AgendaListItem({ appointment }: { appointment: StaffAppointmentItem }) 
             <div className="flex justify-end gap-2">
                 {appointment.status === "scheduled" && (
                 <>         
-                <Button variant="outline" onClick={() => setShowCancelForm(true)}>
+                <Button variant="default" onClick={handleCheckIn} disabled={isCheckingIn}>
+                    {isCheckingIn ? "Checking in…" : "Check In"}
+                </Button>
+                <Button variant="destructive" onClick={() => setShowCancelForm(true)}>
                     Cancel Appointment
                 </Button>
                 <Dialog open={showCancelForm} onOpenChange={setShowCancelForm}>
@@ -558,12 +616,18 @@ function AgendaListItem({ appointment }: { appointment: StaffAppointmentItem }) 
                           onSuccess={() => {
                           setShowCancelForm(false)  
                           localStorage.setItem("appointments_refresh", String(Date.now())) // refresh appointments
+                          if (onRefresh) onRefresh()
                           }}
                           onCancel={() => setShowCancelForm(false)} 
                           />
                      </DialogContent>
                 </Dialog>
                 </>
+                )}
+                {appointment.status === "checked_in" && (
+                <Button variant="default" onClick={handleMarkCompleted} disabled={isCompleting}>
+                       {isCompleting ? "Updating…" : "Mark Completed"}
+                </Button>
                 )}
                 <Button variant="outline" onClick={() => setIsOpen(false)}>
                      Close

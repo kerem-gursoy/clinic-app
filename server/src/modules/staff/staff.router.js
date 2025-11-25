@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { requireAuth, requireRole } from "../../middlewares/auth.js";
-import { getStaffAppointments, getStaffDoctors, getStaffPatients } from "./staff.controller.js";
+import { getStaffAppointments, getStaffDoctors, getStaffPatients, getPatientUpdateLogs } from "./staff.controller.js";
 import { createPatient } from "../users/user.service.js";
 
 const router = Router();
@@ -8,6 +8,9 @@ const router = Router();
 router.get("/staff/appointments", requireAuth, requireRole("STAFF"), getStaffAppointments);
 router.get("/staff/patients", requireAuth, requireRole("STAFF"), getStaffPatients);
 router.get("/staff/doctors", requireAuth, requireRole("STAFF"), getStaffDoctors);
+
+// New notifications endpoint to fetch `patient_update_log`
+router.get("/staff/notifications", requireAuth, requireRole("STAFF"), getPatientUpdateLogs);
 
 router.post(
   "/staff/patients",

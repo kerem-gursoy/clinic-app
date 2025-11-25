@@ -10,23 +10,22 @@ import { formatPhoneNumber, formatLicenseNumber } from "@/lib/utils"
 import { Trash2 } from "lucide-react"
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select"
 
-<<<<<<< HEAD
+
 interface Doctor {
-  doctor_id: number
-  doc_fname: string
-  doc_lname: string
-  doc_minit?: string | null
-  email: string
-  phone?: string | null
-  gender?: number | null
-  license_no?: string | null
-  ssn?: string | null
-=======
+    doctor_id: number
+    doc_fname: string
+    doc_lname: string
+    doc_minit?: string | null
+    email: string
+    phone?: string | null
+    gender?: number | null
+    license_no?: string | null
+    ssn?: string | null
+}
 interface NewDoctorFormProps {
   doctorId?: number
   onCancel?: () => void
   onSuccess?: () => void
->>>>>>> 3e00b3612fbbb13042abb7d297268e15bffdcbdd
 }
 
 interface NewDoctorFormProps {
