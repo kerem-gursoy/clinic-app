@@ -207,6 +207,7 @@ export default function AppointmentReportPage() {
         </p>
       </div>
 
+      {/* Charts Row 2 */}
       <Card>
         <CardHeader>
           <CardTitle>Filters</CardTitle>
