@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import { Button } from "@/components/ui/button";
 import { StatusChip } from "@/components/status-chip";
 import { EmptyState } from "@/components/empty-state";
-import { Dialog, DialogContent } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogTitle, DialogHeader } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Calendar, Clock, User, Filter } from "lucide-react";
 import type { AppointmentStatus } from "@/lib/types";
@@ -148,7 +148,17 @@ export default function PatientAppointmentsPage() {
               <h2 className="text-lg font-semibold mb-4">Upcoming</h2>
               <div className="bg-card rounded-xl border divide-y">
                 {upcomingAppointments.map((appointment) => (
-                  <AppointmentRow key={appointment.appointment_id} appointment={appointment} />
+                  <AppointmentRow
+                    key={appointment.appointment_id}
+                    appointment={appointment}
+                    onCancelSuccess={(id) => {
+                      setAppointments((prev) =>
+                        prev.map((apt) =>
+                          apt.appointment_id === id ? { ...apt, status: "canceled" } : apt
+                        )
+                      )
+                    }}
+                  />
                 ))}
               </div>
             </section>
@@ -160,7 +170,17 @@ export default function PatientAppointmentsPage() {
               <h2 className="text-lg font-semibold mb-4">Past</h2>
               <div className="bg-card rounded-xl border divide-y">
                 {pastAppointments.map((appointment) => (
-                  <AppointmentRow key={appointment.appointment_id} appointment={appointment} />
+                  <AppointmentRow
+                    key={appointment.appointment_id}
+                    appointment={appointment}
+                    onCancelSuccess={(id) => {
+                      setAppointments((prev) =>
+                        prev.map((apt) =>
+                          apt.appointment_id === id ? { ...apt, status: "canceled" } : apt
+                        )
+                      )
+                    }}
+                  />
                 ))}
               </div>
             </section>
@@ -171,7 +191,13 @@ export default function PatientAppointmentsPage() {
   )
 }
 
-function AppointmentRow({ appointment }: { appointment: PatientAppointment }) {
+function AppointmentRow({
+  appointment,
+  onCancelSuccess,
+}: {
+  appointment: PatientAppointment
+  onCancelSuccess: (id: number) => void
+}) {
   const appointmentDate = appointment.start_at ? new Date(appointment.start_at) : new Date()
   const [isOpen, setIsOpen] = useState(false)
   const formattedDate = appointmentDate.toLocaleDateString("en-US", {
@@ -216,7 +242,7 @@ function AppointmentRow({ appointment }: { appointment: PatientAppointment }) {
         <Button variant="ghost" size="sm" onClick={() => setIsOpen(true)}>
           View
         </Button>
-        */
+
       </div>
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -224,7 +250,7 @@ function AppointmentRow({ appointment }: { appointment: PatientAppointment }) {
           <div className="space-y-4">
             <div>
               <p className="text-sm text-muted-foreground">Appointment for</p>
-              <h3 className="text-xl font-semibold">{appointment.reason}</h3>
+              <DialogTitle className="text-xl font-semibold">{appointment.reason}</DialogTitle>
               <p className="text-sm text-muted-foreground">with {appointment.providerName}</p>
             </div>
 
@@ -262,13 +288,15 @@ function AppointmentRow({ appointment }: { appointment: PatientAppointment }) {
 
                   <Dialog open={showCancelForm} onOpenChange={setShowCancelForm}>
                     <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Cancel Appointment</DialogTitle>
+                      </DialogHeader>
                       <CancelAppointmentForm
                         appointmentId={appointment.appointment_id}
                         onSuccess={() => {
+                          onCancelSuccess(appointment.appointment_id)
                           setShowCancelForm(false)
                           setIsOpen(false)
-                          // reload to reflect changed appointments list
-                          if (typeof window !== "undefined") window.location.reload()
                         }}
                         onCancel={() => setShowCancelForm(false)}
                       />

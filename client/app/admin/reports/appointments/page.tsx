@@ -1,271 +1,420 @@
-"use client"
+"use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react"
-import { BarChart3, Calendar, RefreshCw, Search, Stethoscope, User } from "lucide-react"
+import { useEffect, useMemo, useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { apiPath } from "@/app/lib/api";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+} from "recharts";
+import { Loader2, TrendingUp, TrendingDown } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
-import { apiPath } from "@/app/lib/api"
-import { EmptyState } from "@/components/empty-state"
-import { StatusChip } from "@/components/status-chip"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import type { AppointmentStatus } from "@/lib/types"
-
-type StatusFilter = AppointmentStatus | "all"
-
-interface AdminAppointmentResponse {
-  appointment_id: number
-  patientName: string | null
-  doctorName: string | null
-  doctor_id: number | null
-  patient_id: number | null
-  status: string | null
-  reason: string | null
-  start_at: string | null
-  time: string | null
-  duration: number | null
+interface ReportTotals {
+  totalAppointments: number;
+  completionRate: number;
+  cancelRate: number;
+  noShowRate: number;
+  averageLeadTimeDays: number;
 }
 
-interface AdminAppointmentRow {
-  id: string
-  appointmentId: number
-  patientName: string
-  doctorName: string
-  doctorId: number | null
-  patientId: number | null
-  status: AppointmentStatus
-  startAt: string | null
-  date: string
-  time: string
-  reason: string
-  duration: number
+interface ReportData {
+  range: { start: string; end: string };
+  previousRange: { start: string; end: string };
+  totals: ReportTotals;
+  previousTotals: ReportTotals;
+  deltas: ReportTotals;
+  appointmentsByDoctor: { name: string; count: number }[];
+  statusDistribution: { name: string; value: number }[];
+  genderByDoctor: { doctor: string; Male: number; Female: number; Other: number }[];
+  providerLoad: { doctor: string; loadPerHour: number; appointments: number; totalMinutes: number }[];
+  heavyDays: { doctor: string; date: string; loadPerHour: number; appointments: number; totalMinutes: number }[];
+  filtersApplied: {
+    dateFrom: string;
+    dateTo: string;
+    providerId: number | null;
+    status: string | null;
+    capacityThreshold: number;
+  };
 }
 
-const STATUS_OPTIONS: Array<{ value: StatusFilter; label: string }> = [
+interface DoctorOption {
+  doctor_id: number;
+  name?: string;
+  doc_fname?: string;
+  doc_lname?: string;
+}
+
+const STATUS_OPTIONS = [
   { value: "all", label: "All statuses" },
   { value: "scheduled", label: "Scheduled" },
-  { value: "checked_in", label: "Checked in" },
   { value: "completed", label: "Completed" },
   { value: "canceled", label: "Canceled" },
-  { value: "no_show", label: "No-show" },
-]
+  { value: "no_show", label: "No Show" },
+];
 
-export default function AdminAppointmentsReportPage() {
-  const [appointments, setAppointments] = useState<AdminAppointmentRow[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [search, setSearch] = useState("")
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all")
-  const [startDate, setStartDate] = useState("")
-  const [endDate, setEndDate] = useState("")
+const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884d8"];
 
-  const fetchReport = useCallback(async () => {
-    try {
-      setIsLoading(true)
-      setError(null)
-      const token = typeof window !== "undefined" ? window.localStorage.getItem("authToken") : null
-      // Staff appointments endpoint joins appointment + patient + doctor tables.
-      const res = await fetch(apiPath("/staff/appointments?limit=400"), {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-        credentials: "include",
-      })
+export default function AppointmentReportPage() {
+  const defaultEnd = useMemo(() => new Date(), []);
+  const defaultStart = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 30);
+    return d;
+  }, []);
 
-      const body = await res.json().catch(() => ({}))
-      if (!res.ok || !Array.isArray(body.appointments)) {
-        throw new Error(body?.error || "Failed to load appointments")
-      }
+  const [filters, setFilters] = useState({
+    dateFrom: formatInputDate(defaultStart),
+    dateTo: formatInputDate(defaultEnd),
+    providerId: "all",
+    status: "all",
+    capacityThreshold: 4,
+  });
 
-      setAppointments(body.appointments.map(mapAdminAppointment))
-    } catch (err) {
-      console.error(err)
-      setAppointments([])
-      setError((err as Error).message || "Failed to load appointments")
-    } finally {
-      setIsLoading(false)
-    }
-  }, [])
+  const [data, setData] = useState<ReportData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [doctors, setDoctors] = useState<DoctorOption[]>([]);
+  const [isApplying, setIsApplying] = useState(false);
 
   useEffect(() => {
-    fetchReport()
-  }, [fetchReport])
+    const fetchDoctors = async () => {
+      try {
+        const token = typeof window !== "undefined" ? localStorage.getItem("authToken") : null;
+        const res = await fetch(apiPath("/staff/doctors"), {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+          credentials: "include",
+        });
+        const body = await res.json().catch(() => ({}));
+        if (res.ok && Array.isArray(body.doctors)) {
+          setDoctors(body.doctors);
+        }
+      } catch (err) {
+        console.error("Failed to load doctors list", err);
+      }
+    };
+    fetchDoctors();
+  }, []);
 
-  const filteredAppointments = useMemo(() => {
-    return appointments.filter((appt) => {
-      const matchesSearch =
-        search.trim().length === 0 ||
-        appt.patientName.toLowerCase().includes(search.toLowerCase()) ||
-        appt.doctorName.toLowerCase().includes(search.toLowerCase()) ||
-        appt.reason.toLowerCase().includes(search.toLowerCase())
+  useEffect(() => {
+    const fetchData = async () => {
+      setIsApplying(true);
+      setError(null);
+      try {
+        const token = typeof window !== "undefined" ? localStorage.getItem("authToken") : null;
+        const params = new URLSearchParams();
+        if (filters.dateFrom) params.set("dateFrom", filters.dateFrom);
+        if (filters.dateTo) params.set("dateTo", filters.dateTo);
+        if (filters.providerId && filters.providerId !== "all") params.set("providerId", filters.providerId);
+        if (filters.status && filters.status !== "all") params.set("status", filters.status);
+        if (filters.capacityThreshold) params.set("capacityThreshold", String(filters.capacityThreshold));
 
-      const matchesStatus = statusFilter === "all" || appt.status === statusFilter
+        const res = await fetch(apiPath(`/api/staff/reports/appointments?${params.toString()}`), {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+          credentials: "include",
+        });
+        if (!res.ok) throw new Error("Failed to fetch report data");
+        const json = await res.json();
+        setData(json);
+      } catch (err) {
+        setError((err as Error).message);
+      } finally {
+        setLoading(false);
+        setIsApplying(false);
+      }
+    };
+    fetchData();
+  }, [filters]);
 
-      const startDateMatch = !startDate || (appt.startAt && new Date(appt.startAt) >= new Date(startDate))
-      const endDateMatch =
-        !endDate ||
-        (appt.startAt &&
-          new Date(appt.startAt) <=
-            new Date(new Date(endDate).setHours(23, 59, 59, 999)))
+  if (loading) {
+    return (
+      <div className="flex justify-center p-8">
+        <Loader2 className="animate-spin h-8 w-8" />
+      </div>
+    );
+  }
+  if (error) return <div className="text-destructive p-8">Error: {error}</div>;
+  if (!data) return null;
 
-      return matchesSearch && matchesStatus && startDateMatch && endDateMatch
-    })
-  }, [appointments, endDate, search, startDate, statusFilter])
+  const kpiCards = [
+    {
+      label: "Total Appointments",
+      value: data.totals.totalAppointments,
+      delta: data.deltas.totalAppointments,
+      format: (v: number) => v.toLocaleString(),
+    },
+    {
+      label: "Completion Rate",
+      value: data.totals.completionRate,
+      delta: data.deltas.completionRate,
+      suffix: "%",
+      format: (v: number) => v.toFixed(1),
+    },
+    {
+      label: "Cancel Rate",
+      value: data.totals.cancelRate,
+      delta: data.deltas.cancelRate,
+      suffix: "%",
+      format: (v: number) => v.toFixed(1),
+    },
+    {
+      label: "No-Show Rate",
+      value: data.totals.noShowRate,
+      delta: data.deltas.noShowRate,
+      suffix: "%",
+      format: (v: number) => v.toFixed(1),
+    },
+    {
+      label: "Avg Lead Time",
+      value: data.totals.averageLeadTimeDays,
+      delta: data.deltas.averageLeadTimeDays,
+      suffix: " days",
+      format: (v: number) => v.toFixed(1),
+    },
+  ];
 
-  const statusTotals = useMemo(() => {
-    return filteredAppointments.reduce(
-      (acc, appt) => {
-        acc.total += 1
-        acc.byStatus[appt.status] = (acc.byStatus[appt.status] ?? 0) + 1
-        return acc
-      },
-      {
-        total: 0,
-        byStatus: {
-          scheduled: 0,
-          checked_in: 0,
-          completed: 0,
-          canceled: 0,
-          no_show: 0,
-        } as Record<AppointmentStatus, number>,
-      },
-    )
-  }, [filteredAppointments])
+  const providerLoadChart = data.providerLoad.map((entry) => ({
+    doctor: entry.doctor,
+    loadPerHour: Number(entry.loadPerHour?.toFixed(2)),
+    appointments: entry.appointments,
+  }));
 
   return (
-    <div className="container max-w-6xl mx-auto py-8 px-4 space-y-6">
+    <div className="container mx-auto py-8 px-4 space-y-8">
       <div className="flex flex-col gap-2">
-        <h1 className="text-2xl font-semibold">Appointments Report</h1>
+        <h1 className="text-3xl font-bold">Appointment Insights</h1>
         <p className="text-muted-foreground">
-          Run quick system-level queries across appointments joined with patients and doctors.
+          Insight on doctors and appointments.
         </p>
       </div>
 
       <Card>
-        <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 w-full">
-            <div className="space-y-2">
-              <Label>Search</Label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Patient, doctor, or reason"
-                  className="pl-9"
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Status</Label>
-              <Select value={statusFilter} onValueChange={(value: StatusFilter) => setStatusFilter(value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All statuses" />
-                </SelectTrigger>
-                <SelectContent>
-                  {STATUS_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="startDate">Start date</Label>
-              <Input
-                id="startDate"
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="endDate">End date</Label>
-              <Input id="endDate" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
-            </div>
-          </div>
-          <div className="flex gap-2 justify-end">
-            <Button variant="outline" onClick={() => {
-              setSearch("")
-              setStatusFilter("all")
-              setStartDate("")
-              setEndDate("")
-            }}>
-              Clear
-            </Button>
-            <Button variant="secondary" onClick={fetchReport} disabled={isLoading}>
-              <RefreshCw className="h-4 w-4 mr-2" />
-              {isLoading ? "Refreshing…" : "Refresh"}
-            </Button>
-          </div>
+        <CardHeader>
+          <CardTitle>Filters</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <StatCard title="Total results" value={statusTotals.total} />
-            <StatCard title="Scheduled" value={statusTotals.byStatus.scheduled} />
-            <StatCard title="Checked in" value={statusTotals.byStatus.checked_in} />
-            <StatCard title="Completed" value={statusTotals.byStatus.completed} />
-            <StatCard title="Canceled" value={statusTotals.byStatus.canceled} />
-            <StatCard title="No-shows" value={statusTotals.byStatus.no_show} />
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Calendar className="h-4 w-4" />
-              <span>
-                Showing {filteredAppointments.length} of {appointments.length} records
-              </span>
-            </div>
-            {error && <span className="text-sm text-destructive">{error}</span>}
-          </div>
-
-          {isLoading ? (
-            <div className="bg-muted/30 border rounded-lg p-6 text-center text-muted-foreground">Loading…</div>
-          ) : filteredAppointments.length === 0 ? (
-            <EmptyState
-              icon={BarChart3}
-              title="No matching appointments"
-              description="Adjust filters or date range to refine your query."
+        <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+          <div className="space-y-2">
+            <label className="text-sm text-muted-foreground">From</label>
+            <Input
+              type="date"
+              value={filters.dateFrom}
+              onChange={(e) => setFilters((prev) => ({ ...prev, dateFrom: e.target.value }))}
             />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm text-muted-foreground">To</label>
+            <Input
+              type="date"
+              value={filters.dateTo}
+              onChange={(e) => setFilters((prev) => ({ ...prev, dateTo: e.target.value }))}
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm text-muted-foreground">Provider</label>
+            <Select
+              value={filters.providerId}
+              onValueChange={(val) => setFilters((prev) => ({ ...prev, providerId: val }))}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="All providers" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All providers</SelectItem>
+                {doctors.map((doc) => {
+                  const label = doc.name || buildDoctorName(doc.doc_fname, doc.doc_lname);
+                  return (
+                    <SelectItem key={doc.doctor_id} value={String(doc.doctor_id)}>
+                      {label}
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm text-muted-foreground">Status</label>
+            <Select
+              value={filters.status}
+              onValueChange={(val) => setFilters((prev) => ({ ...prev, status: val }))}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="All statuses" />
+              </SelectTrigger>
+              <SelectContent>
+                {STATUS_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm text-muted-foreground">Capacity threshold (appointments/hr)</label>
+            <Input
+              type="number"
+              min={1}
+              step={0.5}
+              value={filters.capacityThreshold}
+              onChange={(e) =>
+                setFilters((prev) => ({ ...prev, capacityThreshold: Number(e.target.value) || 1 }))
+              }
+            />
+          </div>
+        </CardContent>
+        <div className="px-6 pb-4">
+          <Button disabled={isApplying} onClick={() => setFilters((prev) => ({ ...prev }))}>
+            {isApplying ? "Applying..." : "Apply Filters"}
+          </Button>
+        </div>
+      </Card>
+
+      {/* KPI cards */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        {kpiCards.map((kpi) => (
+          <Card key={kpi.label}>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">{kpi.label}</CardTitle>
+              <Delta value={kpi.delta} suffix={kpi.suffix} />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {kpi.format(kpi.value)}
+                {kpi.suffix ?? ""}
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Charts Row 1 */}
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card className="col-span-1">
+          <CardHeader>
+            <CardTitle>Appointments by Doctor</CardTitle>
+          </CardHeader>
+          <CardContent className="h-[320px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={data.appointmentsByDoctor}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" tick={false} tickLine={false} axisLine={false} />
+                <YAxis />
+                <Tooltip />
+                <Bar dataKey="count" fill="#8884d8" name="Appointments" />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        <Card className="col-span-1">
+          <CardHeader>
+            <CardTitle>Status Distribution</CardTitle>
+          </CardHeader>
+          <CardContent className="h-[320px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={data.statusDistribution}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                  outerRadius={80}
+                  fill="#8884d8"
+                  dataKey="value"
+                >
+                  {data.statusDistribution.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Charts Row 2 */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Patient Gender Distribution per Doctor</CardTitle>
+          </CardHeader>
+          <CardContent className="h-[380px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={data.genderByDoctor}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="doctor" tick={false} tickLine={false} axisLine={false} />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="Female" stackId="a" fill="#FF8042" />
+                <Bar dataKey="Male" stackId="a" fill="#0088FE" />
+                <Bar dataKey="Other" stackId="a" fill="#00C49F" />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Load vs Capacity (avg appointments/hour)</CardTitle>
+          </CardHeader>
+          <CardContent className="h-[380px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={providerLoadChart}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="doctor" tick={false} tickLine={false} axisLine={false} />
+                <YAxis />
+                <Tooltip />
+                <Bar dataKey="loadPerHour" fill="#00C49F" name="Avg per hour" />
+                <Legend />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Staffing signals */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Flagged Heavy Days</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Days where appointments/hour exceed the configured capacity threshold.
+          </p>
+        </CardHeader>
+        <CardContent>
+          {data.heavyDays.length === 0 ? (
+            <p className="text-muted-foreground text-sm">No heavy days in this window.</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-left text-muted-foreground border-b">
-                    <th className="py-3 pr-3 font-medium">Patient</th>
-                    <th className="py-3 px-3 font-medium">Doctor</th>
-                    <th className="py-3 px-3 font-medium">Date</th>
-                    <th className="py-3 px-3 font-medium">Time</th>
-                    <th className="py-3 px-3 font-medium">Status</th>
-                    <th className="py-3 px-3 font-medium">Reason</th>
+                <thead className="text-muted-foreground border-b">
+                  <tr>
+                    <th className="text-left py-2 pr-4">Doctor</th>
+                    <th className="text-left py-2 pr-4">Date</th>
+                    <th className="text-left py-2 pr-4">Appointments</th>
+                    <th className="text-left py-2 pr-4">Load / hr</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredAppointments.map((appt) => (
-                    <tr key={appt.id} className="border-b last:border-none">
-                      <td className="py-3 pr-3">
-                        <div className="flex items-center gap-2">
-                          <User className="h-4 w-4 text-muted-foreground" />
-                          <div className="font-medium">{appt.patientName}</div>
-                        </div>
-                        <div className="text-xs text-muted-foreground">Patient ID: {appt.patientId ?? "—"}</div>
-                      </td>
-                      <td className="py-3 px-3">
-                        <div className="flex items-center gap-2">
-                          <Stethoscope className="h-4 w-4 text-muted-foreground" />
-                          <div>{appt.doctorName}</div>
-                        </div>
-                        <div className="text-xs text-muted-foreground">Doctor ID: {appt.doctorId ?? "—"}</div>
-                      </td>
-                      <td className="py-3 px-3 whitespace-nowrap">{appt.date}</td>
-                      <td className="py-3 px-3 whitespace-nowrap">{appt.time}</td>
-                      <td className="py-3 px-3 whitespace-nowrap">
-                        <StatusChip status={appt.status} />
-                      </td>
-                      <td className="py-3 px-3 max-w-md">
-                        <div className="line-clamp-2">{appt.reason}</div>
-                      </td>
+                  {data.heavyDays.map((day) => (
+                    <tr key={`${day.doctor}-${day.date}`} className="border-b last:border-b-0">
+                      <td className="py-2 pr-4">{day.doctor}</td>
+                      <td className="py-2 pr-4">{day.date}</td>
+                      <td className="py-2 pr-4">{day.appointments}</td>
+                      <td className="py-2 pr-4">{day.loadPerHour.toFixed(2)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -275,61 +424,30 @@ export default function AdminAppointmentsReportPage() {
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }
 
-function StatCard({ title, value }: { title: string; value: number }) {
+function buildDoctorName(first?: string, last?: string) {
+  return [first, last].filter(Boolean).join(" ").trim() || "Unassigned";
+}
+
+function formatInputDate(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function Delta({ value, suffix }: { value: number; suffix?: string }) {
+  if (value === 0) return <span className="text-muted-foreground text-xs">no change</span>;
+  const isUp = value > 0;
+  const Icon = isUp ? TrendingUp : TrendingDown;
   return (
-    <Card>
-      <CardContent className="py-4">
-        <p className="text-sm text-muted-foreground">{title}</p>
-        <p className="text-2xl font-semibold">{value}</p>
-      </CardContent>
-    </Card>
-  )
-}
-
-function mapAdminAppointment(appt: AdminAppointmentResponse): AdminAppointmentRow {
-  const start = appt.start_at ? new Date(appt.start_at) : null
-  const normalizedStatus = normalizeStatus(appt.status)
-
-  return {
-    id: `appt-${appt.appointment_id}`,
-    appointmentId: appt.appointment_id,
-    patientId: appt.patient_id ?? null,
-    patientName: appt.patientName || "Unknown patient",
-    doctorId: appt.doctor_id ?? null,
-    doctorName: appt.doctorName || "Unassigned",
-    status: normalizedStatus,
-    startAt: appt.start_at,
-    date: start ? start.toISOString().split("T")[0] : "Unknown",
-    time:
-      appt.time ??
-      (start
-        ? start.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
-        : "N/A"),
-    reason: appt.reason || "No reason provided",
-    duration: appt.duration ?? 0,
-  }
-}
-
-function normalizeStatus(status: string | null | undefined): AppointmentStatus {
-  const value = (status ?? "scheduled").toLowerCase()
-  switch (value) {
-    case "completed":
-      return "completed"
-    case "checked-in":
-    case "checked_in":
-    case "in-room":
-    case "in_room":
-      return "checked_in"
-    case "cancelled":
-    case "canceled":
-      return "canceled"
-    case "no_show":
-      return "no_show"
-    case "scheduled":
-    default:
-      return "scheduled"
-  }
+    <span className={`inline-flex items-center gap-1 text-xs ${isUp ? "text-emerald-600" : "text-rose-600"}`}>
+      <Icon className="h-4 w-4" />
+      {value > 0 ? "+" : ""}
+      {value.toFixed(1)}
+      {suffix ?? ""}
+    </span>
+  );
 }

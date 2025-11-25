@@ -6,7 +6,7 @@ import patientRoutes from "../modules/patient/patient.router.js";
 import profileRoutes from "../modules/profile/profile.router.js";
 import staffRoutes from "../modules/staff/staff.router.js";
 import userRoutes from "../modules/users/user.router.js";
-import reportsRoutes from "../modules/reports/reports.router.js";
+import reportsRouter from "../modules/reports/reports.router.js";
 
 const router = Router();
 
@@ -17,7 +17,7 @@ router.use(doctorRoutes);
 router.use(staffRoutes);
 router.use(profileRoutes);
 router.use("/appointments", appointmentRoutes);
-router.use("/admin/reports", reportsRoutes);
+router.use("/api/admin/reports", reportsRouter);
+router.use("/api/staff/reports", reportsRouter);
 
 export default router;
-
