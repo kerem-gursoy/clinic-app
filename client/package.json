@@ -26,7 +26,8 @@
     "recharts": "^2.15.4",
     "tailwind-merge": "^2.5.5",
     "tailwindcss-animate": "^1.0.7",
-    "autoprefixer": "^10.4.20"
+    "autoprefixer": "^10.4.20",
+    "d3-scale": "^4.0.2"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.9",
