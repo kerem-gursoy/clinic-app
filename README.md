@@ -2,6 +2,7 @@
 
 ## Link
 - https://main.d3w4bg0wlypycu.amplifyapp.com
+- https://clinicdb.online (sometimes)
 
 ## Quick Setup Guide
 - Install dependencies: `npm install`
