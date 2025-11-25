@@ -63,6 +63,23 @@ function parseLimit(value, fallback, min, max) {
   return Math.min(Math.max(parsed, min), max);
 }
 
+export async function getPatient(req, res) {
+  const { id } = req.params;
+  const authUser = req.user;
+
+  if (!authUser) return res.status(401).json({ error: "Unauthorized" });
+
+  try {
+    const patient = await findPatientById(id);
+    if (!patient) {
+      return res.status(404).json({ error: "Patient not found" });
+    }
+    return res.json({ patient });
+  } catch (err) {
+    console.error("Error fetching patient:", err);
+    return res.status(500).json({ error: "Failed to fetch patient" });
+  }
+}
 
 export async function updatePatient(req, res) {
   const { id } = req.params;
@@ -74,7 +91,7 @@ export async function updatePatient(req, res) {
     return res.status(403).json({ error: "Forbidden" });
   }
 
-  const { patient_fname, patient_lname, patient_email, phone, dob } = req.body;
+  const { patient_fname, patient_lname, patient_minit, patient_email, phone, dob } = req.body;
 
   try {
     const existing = await findPatientById(id);
@@ -83,6 +100,7 @@ export async function updatePatient(req, res) {
     const updated = await updatePatientById(id, {
       patient_fname,
       patient_lname,
+      patient_minit,
       patient_email,
       phone,
       dob,
