@@ -67,7 +67,7 @@ export async function registerPatient({ firstName, lastName, email, password, ph
     password,
     phone: phone ?? null,
     dob,
-    ssn,
+    patient_ssn: ssn,
     created_by: null,
     med_id: null,
     prim_doctor: null,

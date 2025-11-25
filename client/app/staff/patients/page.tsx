@@ -19,6 +19,7 @@ import { Label } from "@/components/ui/label"
 import { Search, User, Phone, Mail, Calendar, Plus } from "lucide-react"
 import { apiPath } from "@/app/lib/api"
 import { NewAppointmentForm } from "@/components/appointments/new-appointment-form"
+import { formatPhoneNumber } from "@/lib/utils"
 
 const authUser = JSON.parse(localStorage.getItem("authUser") || "{}");
 const staffId = Number(authUser?.user_id);
@@ -62,6 +63,16 @@ export default function StaffPatientsPage() {
   const [showNewAppointment, setShowNewAppointment] = useState(false)
   const [apptPatientId, setApptPatientId] = useState<number | null>(null)
   const [apptPatientName, setApptPatientName] = useState<string | null>(null)
+  
+  // Add Patient form state
+  const [firstName, setFirstName] = useState("")
+  const [middleInitial, setMiddleInitial] = useState("")
+  const [lastName, setLastName] = useState("")
+  const [email, setEmail] = useState("")
+  const [phone, setPhone] = useState("")
+  const [dob, setDob] = useState("")
+  const [ssn, setSsn] = useState("")
+  const [password, setPassword] = useState("")
 
   useEffect(() => {
     let cancelled = false
@@ -115,22 +126,62 @@ export default function StaffPatientsPage() {
 
   const handleAddPatient = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    const formData = new FormData(e.currentTarget)
+
+    // Validation
+    if (!firstName.trim() || !lastName.trim()) {
+      alert("First and last name are required")
+      return
+    }
+
+    if (!email.trim()) {
+      alert("Email is required")
+      return
+    }
+
+    if (!phone.trim()) {
+      alert("Phone is required")
+      return
+    }
+
+    if (!dob) {
+      alert("Date of birth is required")
+      return
+    }
+
+    if (!ssn.trim()) {
+      alert("SSN is required")
+      return
+    }
+
+    if (!password) {
+      alert("Password is required")
+      return
+    }
+
+    const hasUpperCase = /[A-Z]/.test(password)
+    const hasLowerCase = /[a-z]/.test(password)
+    const hasSpecialChar = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)
+    
+    if (!hasUpperCase || !hasLowerCase || !hasSpecialChar) {
+      alert("Password must contain at least one uppercase letter, one lowercase letter, and one special character")
+      return
+    }
 
     const newPatientData = {
-      patient_fname: formData.get("fname"),
-      patient_lname: formData.get("lname"),
-      patient_minit: formData.get("minit") || null,
-      dob: formData.get("dateOfBirth"),
+      patient_fname: firstName,
+      patient_lname: lastName,
+      patient_minit: middleInitial || null,
+      dob: dob,
+      patient_ssn: ssn,
       gender: null,
-      phone: formData.get("phone"),
+      phone: phone.replace(/\D/g, ""),
       address_id: null,
       balance: 0,
       created_by: staffId,
       med_id: null,
-      patient_email: formData.get("email"),
+      patient_email: email,
       prim_doctor: null,
-      password: "secret123",
+      password: password,
     }
 
     try {
@@ -174,7 +225,16 @@ export default function StaffPatientsPage() {
           dob: newPatientData.dob as string,
         },
       ])
-      //e.currentTarget.reset()
+      
+      // Reset form
+      setFirstName("")
+      setMiddleInitial("")
+      setLastName("")
+      setEmail("")
+      setPhone("")
+      setDob("")
+      setSsn("")
+      setPassword("")
       setIsAddDialogOpen(false)
       
     } catch (err) {
@@ -221,40 +281,126 @@ export default function StaffPatientsPage() {
               Add Patient
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[500px]">
+          <DialogContent className="sm:max-w-[500px] max-h-[85vh] overflow-y-auto">
             <form onSubmit={handleAddPatient}>
               <DialogHeader>
                 <DialogTitle>Add New Patient</DialogTitle>
                 <DialogDescription>Enter the patient's information to create a new record.</DialogDescription>
               </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="fname">First Name *</Label>
-                  <Input id="fname" name="fname" placeholder="John" required />
-                  <Label htmlFor="minit">Middle Initial</Label>
-                  <Input maxLength={1} id="minit" name="minit" placeholder="M" />
-                  <Label htmlFor="lname">Last Name *</Label>
-                  <Input id="lname" name="lname" placeholder="Doe" required />
+              <div className="grid gap-3 py-3">
+                <div className="grid gap-1.5">
+                  <Label htmlFor="fname" className="text-sm">First Name *</Label>
+                  <Input
+                    id="fname"
+                    value={firstName}
+                    onChange={(e) => {
+                      const value = e.target.value
+                      if (value.length > 0) {
+                        setFirstName(value.charAt(0).toUpperCase() + value.slice(1))
+                      } else {
+                        setFirstName(value)
+                      }
+                    }}
+                    placeholder="John"
+                    required
+                    className="h-9"
+                  />
                 </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="dateOfBirth">Date of Birth *</Label>
-                  <Input id="dateOfBirth" name="dateOfBirth" type="date" required />
+                <div className="grid gap-1.5">
+                  <Label htmlFor="minit" className="text-sm">Middle Initial</Label>
+                  <Input
+                    id="minit"
+                    maxLength={1}
+                    value={middleInitial}
+                    onChange={(e) => setMiddleInitial(e.target.value.toUpperCase())}
+                    placeholder="M"
+                    className="h-9"
+                  />
                 </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="email">Email *</Label>
-                  <Input id="email" name="email" type="email" placeholder="john@example.com" required />
+                <div className="grid gap-1.5">
+                  <Label htmlFor="lname" className="text-sm">Last Name *</Label>
+                  <Input
+                    id="lname"
+                    value={lastName}
+                    onChange={(e) => {
+                      const value = e.target.value
+                      if (value.length > 0) {
+                        setLastName(value.charAt(0).toUpperCase() + value.slice(1))
+                      } else {
+                        setLastName(value)
+                      }
+                    }}
+                    placeholder="Doe"
+                    required
+                    className="h-9"
+                  />
                 </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="phone">Phone *</Label>
-                  <Input id="phone" name="phone" type="tel" placeholder="(555) 123-4567" required />
+                <div className="grid gap-1.5">
+                  <Label htmlFor="dateOfBirth" className="text-sm">Date of Birth *</Label>
+                  <Input
+                    id="dateOfBirth"
+                    type="date"
+                    value={dob}
+                    onChange={(e) => setDob(e.target.value)}
+                    max={new Date().toISOString().split('T')[0]}
+                    required
+                    className="h-9"
+                  />
                 </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="insuranceProvider">Insurance Provider</Label>
-                  <Input id="insuranceProvider" name="insuranceProvider" placeholder="Blue Cross" />
+                <div className="grid gap-1.5">
+                  <Label htmlFor="email" className="text-sm">Email *</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="john@example.com"
+                    required
+                    className="h-9"
+                  />
                 </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="insuranceId">Insurance ID</Label>
-                  <Input id="insuranceId" name="insuranceId" placeholder="BC123456789" />
+                <div className="grid gap-1.5">
+                  <Label htmlFor="phone" className="text-sm">Phone *</Label>
+                  <Input
+                    id="phone"
+                    type="tel"
+                    value={formatPhoneNumber(phone)}
+                    onChange={(e) => {
+                      const rawDigits = e.target.value.replace(/\D/g, "")
+                      setPhone(rawDigits)
+                    }}
+                    placeholder="(555) 123-4567"
+                    required
+                    className="h-9"
+                  />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label htmlFor="ssn" className="text-sm">SSN *</Label>
+                  <Input
+                    id="ssn"
+                    type="text"
+                    value={ssn}
+                    onChange={(e) => {
+                      const digits = e.target.value.replace(/\D/g, "").slice(0, 9)
+                      setSsn(digits)
+                    }}
+                    placeholder="9 digits"
+                    maxLength={9}
+                    required
+                    className="h-9"
+                  />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label htmlFor="password" className="text-sm">Password *</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Must include uppercase, lowercase, and special character"
+                    required
+                    className="h-9"
+                  />
                 </div>
               </div>
               <DialogFooter>
@@ -545,7 +691,7 @@ function PatientRow({
               </div>
               <div className="flex items-center gap-1.5">
                 <Phone className="h-3.5 w-3.5" />
-                <span>{patient.phone}</span>
+                <span>{formatPhoneNumber(patient.phone)}</span>
               </div>
             </div>
 

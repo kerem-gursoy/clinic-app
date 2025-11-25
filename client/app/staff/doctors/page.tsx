@@ -10,6 +10,7 @@ import { Search, Phone, Mail, Stethoscope, Calendar } from "lucide-react"
 import type { AppointmentStatus } from "@/lib/types"
 import { apiPath } from "@/app/lib/api"
 import { NewDoctorForm } from "@/components/doctors/new-doctor-form"
+import { formatPhoneNumber } from "@/lib/utils"
 
 interface StaffDoctorResponse {
   doctor_id: number
@@ -85,7 +86,7 @@ export default function StaffDoctorsPage() {
         name: doctor.name,
         specialty: doctor.specialty ?? "General",
         email: doctor.email ?? "N/A",
-        phone: doctor.phone ?? "N/A",
+        phone: doctor.phone ? formatPhoneNumber(doctor.phone) : "N/A",
         todaysAppointments: counts.get(doctor.doctor_id) ?? 0,
       }))
 

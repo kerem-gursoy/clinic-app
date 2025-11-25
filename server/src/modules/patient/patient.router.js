@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { requireAuth, requireRole } from "../../middlewares/auth.js";
-import { getPatientProfile, getMyAppointments, searchPatients, updatePatient, deletePatient, getPatient } from "./patient.controller.js";
+import { getPatientProfile, getMyAppointments, searchPatients, updatePatient, deletePatient, getPatient, changePatientPassword } from "./patient.controller.js";
 
 const router = Router();
 
@@ -11,6 +11,7 @@ router.get("/patients/:id", requireAuth, requireRole("STAFF", "DOCTOR"), getPati
 
 router.put("/patients/:id", requireAuth, updatePatient);
 router.put("/staff/patients/:id", requireAuth, requireRole("STAFF", "DOCTOR"), updatePatient);
+router.put("/patient/password", requireAuth, requireRole("PATIENT"), changePatientPassword);
 router.delete("/patients/:id", requireAuth, deletePatient);
 router.delete("/staff/patients/:id", requireAuth, requireRole("STAFF", "DOCTOR"), deletePatient);
 

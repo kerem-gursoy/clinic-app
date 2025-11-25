@@ -11,46 +11,35 @@ import { AlertCircle, CheckCircle2 } from "lucide-react"
 import { apiPath } from "@/app/lib/api"
 import { formatPhoneNumber } from "@/lib/utils"
 
-interface PatientProfile {
-  patient_id: number
-  patient_fname?: string | null
-  patient_minit?: string | null
-  patient_lname?: string | null
-  patient_email?: string | null
+interface DoctorProfile {
+  doctor_id: number
+  doc_fname?: string | null
+  doc_minit?: string | null
+  doc_lname?: string | null
+  email?: string | null
   phone?: string | null
-  dob?: string | null
 }
 
-function toDateInputValue(value?: string | null): string | null {
-  if (!value) return null
-  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value
-  const d = new Date(value)
-  if (isNaN(d.getTime())) return null
-  const yyyy = d.getFullYear()
-  const mm = String(d.getMonth() + 1).padStart(2, "0")
-  const dd = String(d.getDate()).padStart(2, "0")
-  return `${yyyy}-${mm}-${dd}`
-}
-
-export default function PatientProfilePage() {
+export default function DoctorProfilePage() {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
 
+  // Contact Info
   const [firstName, setFirstName] = useState("")
   const [middleInitial, setMiddleInitial] = useState("")
   const [lastName, setLastName] = useState("")
   const [email, setEmail] = useState("")
   const [phone, setPhone] = useState("")
-  const [dob, setDob] = useState("")
 
+  // Password Change
   const [currentPassword, setCurrentPassword] = useState("")
   const [newPassword, setNewPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
 
-  const [patientId, setPatientId] = useState<number | null>(null)
+  const [doctorId, setDoctorId] = useState<number | null>(null)
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -67,16 +56,15 @@ export default function PatientProfilePage() {
         }
 
         const data = await res.json()
-        const profile = data.profile as PatientProfile
+        const profile = data.profile as DoctorProfile
 
         if (profile) {
-          setPatientId(profile.patient_id)
-          setFirstName(profile.patient_fname ?? "")
-          setMiddleInitial(profile.patient_minit ?? "")
-          setLastName(profile.patient_lname ?? "")
-          setEmail(profile.patient_email ?? "")
+          setDoctorId(profile.doctor_id)
+          setFirstName(profile.doc_fname ?? "")
+          setMiddleInitial(profile.doc_minit ?? "")
+          setLastName(profile.doc_lname ?? "")
+          setEmail(profile.email ?? "")
           setPhone(profile.phone ?? "")
-          setDob(toDateInputValue(profile.dob) ?? "")
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load profile")
@@ -90,7 +78,7 @@ export default function PatientProfilePage() {
 
   const handleUpdateContact = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!patientId) return
+    if (!doctorId) return
 
     setIsSaving(true)
     setError("")
@@ -98,46 +86,25 @@ export default function PatientProfilePage() {
 
     try {
       const token = typeof window !== "undefined" ? window.localStorage.getItem("authToken") : null
-      
-      const payload = {
-        patient_fname: firstName,
-        patient_lname: lastName,
-        patient_minit: middleInitial,
-        patient_email: email,
-        phone: phone.replace(/\D/g, ""),
-        dob,
-      }
+      const res = await fetch(apiPath(`/doctor/profile`), {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          doc_fname: firstName,
+          doc_minit: middleInitial,
+          doc_lname: lastName,
+          email,
+          phone: phone.replace(/\D/g, ""),
+        }),
+      })
 
-      const tryPut = async (url: string) => {
-        const res = await fetch(url, {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          credentials: "include",
-          body: JSON.stringify(payload),
-        })
-        const text = await res.text().catch(() => "")
-        let body: any = text
-        try {
-          body = text ? JSON.parse(text) : text
-        } catch {}
-        return { ok: res.ok, status: res.status, body }
-      }
-
-      // Try primary path
-      const primary = apiPath(`/patients/${encodeURIComponent(String(patientId))}`)
-      let result = await tryPut(primary)
-
-      // Fallback to staff/patients if 404
-      if (!result.ok && result.status === 404) {
-        const fallback = apiPath(`/staff/patients/${encodeURIComponent(String(patientId))}`)
-        result = await tryPut(fallback)
-      }
-
-      if (!result.ok) {
-        throw new Error(result.body?.error || "Failed to update contact information")
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || "Failed to update contact information")
       }
 
       setSuccess("Contact information updated successfully")
@@ -177,7 +144,7 @@ export default function PatientProfilePage() {
 
     try {
       const token = typeof window !== "undefined" ? window.localStorage.getItem("authToken") : null
-      const res = await fetch(apiPath("/patient/password"), {
+      const res = await fetch(apiPath("/doctor/password"), {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -311,17 +278,6 @@ export default function PatientProfilePage() {
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="dob">Date of Birth</Label>
-                <Input
-                  id="dob"
-                  type="date"
-                  value={dob}
-                  onChange={(e) => setDob(e.target.value)}
-                  disabled={isSaving}
-                />
-              </div>
-
               <Button type="submit" disabled={isSaving}>
                 {isSaving ? "Saving..." : "Save Contact Information"}
               </Button>
@@ -383,7 +339,7 @@ export default function PatientProfilePage() {
         </Card>
 
         <div className="flex justify-end">
-          <Button variant="outline" onClick={() => router.push("/patient/appointments")}>
+          <Button variant="outline" onClick={() => router.push("/doctor/appointments")}>
             Back to Appointments
           </Button>
         </div>

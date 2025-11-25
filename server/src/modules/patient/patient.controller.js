@@ -1,3 +1,5 @@
+import argon2 from "argon2";
+import { pool } from "../../db/pool.js";
 import { getRecentPatientAppointments } from "../appointments/appointment.service.js";
 import { updatePatientById, findPatientById, findPatientByEmail, searchPatients as searchPatientsService } from "../users/user.service.js";
 
@@ -153,5 +155,54 @@ export async function deletePatient(req, res) {
   } catch (err) {
     console.error("patient delete error:", err);
     return res.status(500).json({ error: err?.message ?? "Failed to delete patient" });
+  }
+}
+
+export async function changePatientPassword(req, res) {
+  const authUser = req.user;
+  if (!authUser?.user_id) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  const { currentPassword, newPassword } = req.body;
+
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ error: "Current password and new password are required" });
+  }
+
+  if (newPassword.length < 6) {
+    return res.status(400).json({ error: "New password must be at least 6 characters" });
+  }
+
+  try {
+    // Get current password hash
+    const [rows] = await pool.query(
+      `SELECT password FROM login WHERE user_id = ? AND role = 'PATIENT' LIMIT 1`,
+      [authUser.user_id]
+    );
+
+    if (!rows || rows.length === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const currentHash = rows[0].password;
+
+    // Verify current password
+    const passwordMatches = await argon2.verify(currentHash, currentPassword);
+    if (!passwordMatches) {
+      return res.status(400).json({ error: "Current password is incorrect" });
+    }
+
+    // Hash new password and update
+    const newHash = await argon2.hash(newPassword);
+    await pool.query(
+      `UPDATE login SET password = ?, updated_at = NOW() WHERE user_id = ? AND role = 'PATIENT'`,
+      [newHash, authUser.user_id]
+    );
+
+    return res.json({ success: true, message: "Password changed successfully" });
+  } catch (err) {
+    console.error("patient/password change error:", err);
+    return res.status(500).json({ error: err?.message ?? "Failed to change password" });
   }
 }

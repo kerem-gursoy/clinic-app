@@ -20,11 +20,11 @@ export async function createPatient(data) {
     await connection.beginTransaction();
 
     if (!data.dob) throw validationError("Date of birth is required");
-    if (!data.ssn) throw validationError("SSN is required");
+    if (!data.patient_ssn) throw validationError("SSN is required");
 
     const [patientResult] = await connection.query(
       `INSERT INTO patient (
-        patient_fname, patient_lname, patient_minit, dob, ssn, gender,
+        patient_fname, patient_lname, patient_minit, dob, patient_ssn, gender,
         phone, address_id, balance, created_at, created_by,
         med_id, patient_email, prim_doctor
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, ?, ?, ?)`,
@@ -33,7 +33,7 @@ export async function createPatient(data) {
         data.patient_lname,
         data.patient_minit ?? null,
         data.dob ?? null,
-        data.ssn ?? null,
+        data.patient_ssn ?? null,
         data.gender ?? null,
         data.phone ?? null,
         data.address_id ?? null,
