@@ -18,7 +18,6 @@ export default function SignupPage() {
   const [password, setPassword] = useState("")
   const [phone, setPhone] = useState("")
   const [dob, setDob] = useState("")
-  const [ssn, setSsn] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
 
@@ -35,7 +34,6 @@ export default function SignupPage() {
         password,
         phone: phone || undefined,
         dob,
-        ssn,
       })
       router.push("/patient/appointments")
     } catch (err) {
@@ -143,16 +141,6 @@ export default function SignupPage() {
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="ssn">SSN</Label>
-                <Input
-                  id="ssn"
-                  value={ssn}
-                  onChange={(e) => setSsn(e.target.value)}
-                  disabled={isLoading}
-                  required
-                />
-              </div>
 
               <div className="mt-4">
                 <Button type="submit" className="w-full" disabled={isLoading}>

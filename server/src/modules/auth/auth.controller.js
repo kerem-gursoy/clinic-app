@@ -25,8 +25,8 @@ export function logout(_req, res) {
 
 export async function signupPatient(req, res) {
   try {
-    const { first_name, last_name, email, password, phone, dob, ssn } = req.body ?? {};
-    if (!first_name || !last_name || !email || !password || !dob || !ssn) {
+    const { first_name, last_name, email, password, phone, dob } = req.body ?? {};
+    if (!first_name || !last_name || !email || !password || !dob) {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
@@ -37,7 +37,6 @@ export async function signupPatient(req, res) {
       password,
       phone,
       dob,
-      ssn,
     });
 
     return res.json(result);

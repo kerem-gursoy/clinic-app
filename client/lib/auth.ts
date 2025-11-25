@@ -143,7 +143,6 @@ export async function signupPatient({
   password,
   phone,
   dob,
-  ssn,
 }: {
   first_name: string;
   last_name: string;
@@ -151,12 +150,11 @@ export async function signupPatient({
   password: string;
   phone?: string;
   dob?: string;
-  ssn: string;
 }) {
   const response = await fetch(apiPath("auth/signup"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ first_name, last_name, email, password, phone, dob, ssn }),
+    body: JSON.stringify({ first_name, last_name, email, password, phone, dob }),
     credentials: "include",
   });
 
